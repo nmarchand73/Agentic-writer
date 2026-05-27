@@ -3,121 +3,449 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Agentic Writer</title>
-  <meta name="description" content="AI story pipeline with CopilotKit + AG-UI Studio, CLI export to docx/PDF, and Gherkin BDD." />
+  <title>Agentic Writer — AI fiction pipeline with generative Studio UI</title>
+  <meta name="description" content="Writer → Editor → docx/PDF. CopilotKit v2, AG-UI, Pydantic AI. CLI and Studio share one pipeline. Gherkin BDD for CI without OpenAI." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Literata:opsz,wght@7..72,500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Literata:opsz,wght@7..72,500;7..72,600&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #f6f4f1;
-      --fg: #1a1816;
-      --muted: #6b6560;
+      --bg: #faf9f7;
+      --bg-elevated: #ffffff;
+      --fg: #1c1917;
+      --muted: #57534e;
       --accent: #5b4bb7;
+      --accent-hover: #4a3d9a;
       --accent-soft: #ede9fe;
-      --border: #e2ddd6;
+      --warm: #c2410c;
+      --warm-soft: #fff7ed;
+      --border: #e7e5e4;
+      --shadow: 0 1px 3px rgba(28, 25, 23, 0.06), 0 8px 24px rgba(28, 25, 23, 0.06);
+      --radius: 12px;
+      --max: 44rem;
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: "DM Sans", system-ui, sans-serif;
       background: var(--bg);
       color: var(--fg);
-      line-height: 1.6;
-      min-height: 100vh;
+      line-height: 1.65;
+      font-size: 1rem;
     }
-    .wrap { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
-    h1 {
-      font-family: Literata, Georgia, serif;
-      font-weight: 500;
-      font-size: 2rem;
-      margin: 0 0 0.5rem;
-      letter-spacing: -0.02em;
+
+    a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+    a:hover { color: var(--accent-hover); }
+
+    .hero {
+      background: linear-gradient(165deg, #f5f3ff 0%, var(--bg) 45%, #fff7ed 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 3rem 1.25rem 2.5rem;
     }
+
+    .wrap {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 1.25rem;
+    }
+
+    main.wrap { padding-top: 2rem; padding-bottom: 4rem; }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
     .badge {
-      display: inline-block;
-      font-size: 0.65rem;
+      font-size: 0.7rem;
       font-weight: 700;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      padding: 0.2rem 0.5rem;
-      border-radius: 0.25rem;
+      padding: 0.25rem 0.55rem;
+      border-radius: 6px;
       background: var(--accent-soft);
       color: var(--accent);
-      margin-bottom: 1rem;
     }
-    .lead { font-size: 1.05rem; color: var(--muted); margin: 0 0 1.5rem; }
-  .lead a { color: var(--accent); }
-    .card {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 0.75rem;
-      padding: 1.25rem 1.5rem;
-      margin-bottom: 1rem;
+
+    .badge-warm {
+      background: var(--warm-soft);
+      color: var(--warm);
     }
-    .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 0.75rem; }
-    .card ul { margin: 0; padding-left: 1.2rem; }
-    .card li { margin-bottom: 0.35rem; }
-    .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+
+    h1 {
+      font-family: Literata, Georgia, serif;
+      font-weight: 600;
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      line-height: 1.15;
+      margin: 0 0 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .lead {
+      font-size: 1.125rem;
+      color: var(--muted);
+      margin: 0 0 1.5rem;
+      max-width: 38em;
+    }
+
+    .lead strong { color: var(--fg); font-weight: 600; }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+    }
+
     .btn {
-      display: inline-block;
-      padding: 0.55rem 1rem;
-      border-radius: 0.5rem;
+      display: inline-flex;
+      align-items: center;
+      padding: 0.6rem 1.1rem;
+      border-radius: 8px;
       font-weight: 600;
       font-size: 0.9rem;
       text-decoration: none;
       border: 1px solid var(--border);
-      background: #fff;
+      background: var(--bg-elevated);
+      color: var(--fg);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
       color: var(--fg);
     }
+
     .btn-primary {
-      background: linear-gradient(135deg, #5b4bb7, #d97706);
+      background: linear-gradient(135deg, #5b4bb7 0%, #7c3aed 50%, #c2410c 100%);
       color: #fff;
       border: none;
     }
-    footer { margin-top: 2.5rem; font-size: 0.8rem; color: var(--muted); }
+
+    .btn-primary:hover { color: #fff; }
+
+    .pipeline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 0.5rem;
+      margin: 1.75rem 0 0;
+      padding: 1rem 1.15rem;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .pipeline span {
+      padding: 0.35rem 0.65rem;
+      background: var(--bg-elevated);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .pipeline .arrow { color: var(--muted); font-weight: 400; border: none; background: none; padding: 0; }
+
+    section { margin-bottom: 2.25rem; }
+
+    h2 {
+      font-family: Literata, Georgia, serif;
+      font-weight: 600;
+      font-size: 1.35rem;
+      margin: 0 0 0.35rem;
+      letter-spacing: -0.01em;
+    }
+
+    .section-intro {
+      color: var(--muted);
+      margin: 0 0 1.25rem;
+      font-size: 0.95rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .grid-2 { grid-template-columns: 1fr 1fr; }
+    }
+
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.35rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card h3 {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin: 0 0 0.65rem;
+    }
+
+    .card p { margin: 0 0 0.65rem; font-size: 0.95rem; }
+    .card p:last-child { margin-bottom: 0; }
+
+    .tech {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .tech li {
+      padding: 0.85rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tech li:last-child { border-bottom: none; padding-bottom: 0; }
+    .tech li:first-child { padding-top: 0; }
+
+    .tech-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .tech-head strong { font-size: 1rem; }
+
+    .tech-tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+
+    .tech li p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .compare {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 560px) {
+      .compare { grid-template-columns: 1fr 1fr; }
+    }
+
+    .mode {
+      border-left: 3px solid var(--accent);
+    }
+
+    .mode.studio { border-left-color: var(--warm); }
+
+    code {
+      font-size: 0.82em;
+      background: #f5f5f4;
+      padding: 0.12em 0.35em;
+      border-radius: 4px;
+    }
+
+    .steps {
+      margin: 0;
+      padding-left: 1.2rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .steps li { margin-bottom: 0.4rem; }
+
+    footer {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <span class="badge">CopilotKit · AG-UI · Pydantic AI</span>
-    <h1>Agentic Writer</h1>
-    <p class="lead">
-      Automated fiction pipeline (Writer → Editor → markdown → <strong>docx/PDF</strong>).
-      The Studio uses <a href="https://www.copilotkit.ai/">CopilotKit</a> v2 and
-      <a href="https://docs.ag-ui.com/">AG-UI</a> for generative UI—live pipeline state, not chat-only.
-      Same flow via CLI for headless runs.
-    </p>
-
-    <div class="card">
-      <h2>Stack</h2>
-      <ul>
-        <li>Python — Pydantic AI, FastAPI <code>/agui</code>, Typer CLI</li>
-        <li>Next.js — CopilotKit runtime, persisted threads</li>
-        <li>Skills — story-writer, manuscript-editor, print-layout</li>
-        <li>Tests — Gherkin BDD (pytest-bdd), CI without OpenAI</li>
-      </ul>
+  <header class="hero">
+    <div class="wrap">
+      <div class="badges">
+        <span class="badge">CopilotKit v2</span>
+        <span class="badge">AG-UI</span>
+        <span class="badge">Pydantic AI</span>
+        <span class="badge badge-warm">Generative UI</span>
+      </div>
+      <h1>From pitch to print-ready fiction—one pipeline, two ways to run it</h1>
+      <p class="lead">
+        <strong>Agentic Writer</strong> orchestrates a Writer → Editor flow, saves structured artefacts,
+        and exports <strong>docx &amp; PDF</strong>. Use the <strong>CLI</strong> in CI or batch jobs;
+        use the <strong>Studio</strong> when you want a live UI that shows pipeline progress—not just chat bubbles.
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/nmarchand73/Agentic-writer">GitHub repository</a>
+        <a class="btn" href="https://github.com/nmarchand73/Agentic-writer#architecture">Architecture (C4)</a>
+        <a class="btn" href="https://github.com/nmarchand73/Agentic-writer/tree/main/specs/bdd">BDD specs</a>
+      </div>
+      <div class="pipeline" aria-label="Pipeline flow">
+        <span>Brief</span>
+        <span class="arrow">→</span>
+        <span>Writer</span>
+        <span class="arrow">→</span>
+        <span>Editor</span>
+        <span class="arrow">→</span>
+        <span>Markdown</span>
+        <span class="arrow">→</span>
+        <span>docx / PDF</span>
+      </div>
     </div>
+  </header>
 
-    <div class="card">
-      <h2>Quick start</h2>
-      <ul>
-        <li><code>uv sync --all-extras</code> · <code>npm install</code></li>
-        <li><code>cp .env.example .env</code> · set <code>OPENAI_API_KEY</code></li>
-        <li>CLI: <code>uv run agentic-writer generate …</code></li>
-        <li>Studio: <code>uv run agentic-writer serve</code> + <code>cd web && npm run dev</code></li>
-      </ul>
-    </div>
+  <main class="wrap">
+    <section>
+      <h2>Why this stack (2025–2026)</h2>
+      <p class="section-intro">
+        Deliberate choices for agent UX, a clean backend boundary, and tests that run without burning API credits.
+      </p>
+      <div class="card">
+        <ul class="tech">
+          <li>
+            <div class="tech-head">
+              <strong><a href="https://www.copilotkit.ai/">CopilotKit v2</a></strong>
+              <span class="tech-tag">Studio UI</span>
+            </div>
+            <p>
+              Multi-route runtime (<code>/api/copilotkit</code>), thread list, and chat—so you build story tools and state,
+              not another SSE/WebSocket protocol from scratch.
+            </p>
+          </li>
+          <li>
+            <div class="tech-head">
+              <strong><a href="https://docs.ag-ui.com/">AG-UI</a></strong>
+              <span class="tech-tag">Agent wire format</span>
+            </div>
+            <p>
+              Standard events from FastAPI <code>POST /agui</code> to the browser: <code>STATE_SNAPSHOT</code> and
+              <code>STATE_DELTA</code> drive generative UI (steps, slug, errors) while tools run—not a wall of text.
+            </p>
+          </li>
+          <li>
+            <div class="tech-head">
+              <strong><a href="https://ai.pydantic.dev/">Pydantic AI</a></strong>
+              <span class="tech-tag">Python agents</span>
+            </div>
+            <p>
+              Typed Writer and Editor agents, skill-backed prompts, and a Studio orchestrator with tools
+              (<code>run_story_generation</code>). Same <code>run_pipeline()</code> as the CLI.
+            </p>
+          </li>
+          <li>
+            <div class="tech-head">
+              <strong>FastAPI + Next.js</strong>
+              <span class="tech-tag">Split deploy</span>
+            </div>
+            <p>
+              Python owns the model and filesystem; Node owns React and CopilotKit. Manuscript and PDF are served via REST
+              so large markdown never bloats agent state.
+            </p>
+          </li>
+          <li>
+            <div class="tech-head">
+              <strong>Gherkin + pytest-bdd</strong>
+              <span class="tech-tag">Quality</span>
+            </div>
+            <p>
+              Executable specs per slice (env, CLI, pipeline, Studio API, threads). CI markers run with
+              <strong>mocked agents</strong>—no OpenAI key required on every PR.
+            </p>
+          </li>
+        </ul>
+      </div>
+    </section>
 
-    <div class="actions">
-      <a class="btn btn-primary" href="https://github.com/nmarchand73/Agentic-writer">View on GitHub</a>
-      <a class="btn" href="https://github.com/nmarchand73/Agentic-writer#readme">README</a>
-      <a class="btn" href="https://github.com/nmarchand73/Agentic-writer/tree/main/specs/bdd">BDD specs</a>
-    </div>
+    <section>
+      <h2>Generative UI, not chat-only</h2>
+      <p class="section-intro">
+        The Studio reflects what the pipeline is doing—like a build dashboard for fiction.
+      </p>
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Shared agent state</h3>
+          <p>
+            <code>StudioState</code> carries slug, step checklist, and errors. The React tree updates on AG-UI deltas
+            while <code>run_story_generation</code> is still running.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Progress &amp; deliverables</h3>
+          <p>
+            <code>StudioProgressBridge</code> streams step updates. Tabs load final markdown and PDF from
+            <code>/manuscript/{slug}</code> and <code>/pdf/{slug}</code>. Threads persist under
+            <code>.data/studio-threads/</code>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>CLI or Studio</h2>
+      <p class="section-intro">One pipeline implementation; pick the surface that fits your workflow.</p>
+      <div class="compare">
+        <div class="card mode">
+          <h3>CLI (Typer + uv)</h3>
+          <p>Headless <code>generate</code>, <code>serve</code>, <code>doctor</code>. Ideal for scripts, batch runs, and automation.</p>
+          <ol class="steps">
+            <li><code>uv sync --all-extras</code></li>
+            <li><code>uv run agentic-writer generate …</code></li>
+          </ol>
+        </div>
+        <div class="card mode studio">
+          <h3>Studio (local)</h3>
+          <p>CopilotKit chat + generative pipeline UI. Requires API key and both servers on your machine.</p>
+          <ol class="steps">
+            <li><code>uv run agentic-writer serve</code></li>
+            <li><code>cd web && npm run dev</code></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Skills &amp; export</h2>
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Agent skills</h3>
+          <p>
+            <code>story-writer</code>, <code>manuscript-editor</code>, and <code>print-layout</code> skill packs
+            steer tone, structure, and A5 Palatino print styling.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Artefacts</h3>
+          <p>
+            Per slug: twist sheet, drafts, review, final MD, then optional docx/pdf via Node
+            <code>docx</code> and LibreOffice for PDF.
+          </p>
+        </div>
+      </div>
+    </section>
 
     <footer>
-      GitHub Pages landing · run Studio locally for the full interactive UI (requires your API key and backend).
+      <p>
+        This page is the GitHub Pages overview.
+        The interactive Studio runs locally (Python API + Next.js)—not on Pages.
+        Full docs, C4 diagrams, and install steps:
+        <a href="https://github.com/nmarchand73/Agentic-writer#readme">README on GitHub</a>.
+      </p>
     </footer>
-  </div>
+  </main>
 </body>
 </html>

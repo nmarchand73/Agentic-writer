@@ -296,11 +296,18 @@ uv run agentic-writer generate --brief examples/briefs/flash-smoke.yaml --md-onl
 
 ## Run — Studio
 
-```bash
-# Terminal 1
-uv run agentic-writer serve --port 8000
+One script starts the API and the Next.js UI (Ctrl+C stops both):
 
-# Terminal 2
+```bash
+./scripts/run.sh
+# or: npm run studio
+# first time: ./scripts/run.sh --install
+```
+
+Manual split (two terminals):
+
+```bash
+uv run agentic-writer serve --port 8000
 cd web && npm run dev
 ```
 

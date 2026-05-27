@@ -1,6 +1,10 @@
 {
   "name": "agentic-writer-docx",
   "private": true,
+  "scripts": {
+    "studio": "./scripts/run.sh",
+    "studio:install": "./scripts/run.sh --install"
+  },
   "dependencies": {
     "docx": "^9.5.0"
   }

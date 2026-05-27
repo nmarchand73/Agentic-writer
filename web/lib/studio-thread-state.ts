@@ -72,6 +72,21 @@ export async function fetchThreadStudioState(
   }
 }
 
+function stepsLookComplete(state: StudioAgentState): boolean {
+  return Boolean(state.output_dir && !state.error);
+}
+
+/** If the run finished but a step stayed "running", show the bar as done. */
+function reconcileCompletedSteps(state: StudioAgentState): StudioAgentState {
+  if (!stepsLookComplete(state) || !state.steps?.length) return state;
+  const stuck = state.steps.some((s) => s.status !== "completed");
+  if (!stuck) return state;
+  return {
+    ...state,
+    steps: state.steps.map((s) => ({ ...s, status: "completed" as const })),
+  };
+}
+
 /** Prefer live agent state while running; otherwise fill gaps from persisted snapshot. */
 export function mergeStudioState(
   live: StudioAgentState,
@@ -79,17 +94,17 @@ export function mergeStudioState(
   isRunning: boolean,
 ): StudioAgentState {
   if (isRunning) {
-    return {
+    return reconcileCompletedSteps({
       ...live,
       usage_input_tokens: live.usage_input_tokens ?? persisted?.usage_input_tokens,
       usage_output_tokens: live.usage_output_tokens ?? persisted?.usage_output_tokens,
       usage_requests: live.usage_requests ?? persisted?.usage_requests,
       estimated_cost_usd: live.estimated_cost_usd ?? persisted?.estimated_cost_usd,
-    };
+    });
   }
-  if (live.steps?.length) return live;
+  if (live.steps?.length) return reconcileCompletedSteps(live);
   if (!persisted) return live;
-  return {
+  return reconcileCompletedSteps({
     ...persisted,
     ...live,
     steps: persisted.steps?.length ? persisted.steps : live.steps,
@@ -101,5 +116,5 @@ export function mergeStudioState(
     usage_output_tokens: live.usage_output_tokens ?? persisted.usage_output_tokens,
     usage_requests: live.usage_requests ?? persisted.usage_requests,
     estimated_cost_usd: live.estimated_cost_usd ?? persisted.estimated_cost_usd,
-  };
+  });
 }

@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-
 from agentic_writer.editorial_models import (
+    AuditorVerdict,
     ChapterDraft,
     ChapterOutline,
     StoryBlueprint,
 )
 from agentic_writer.editorial_plan import FormatChapterPlan
-from agentic_writer.models import Brief, TwistSheet
+from agentic_writer.models import Brief, EditorResult, TwistSheet
+from agentic_writer.rewrite_feedback import (
+    format_auditor_rewrite_section,
+    format_editor_rewrite_section,
+)
 from agentic_writer.skill_content import (
     architect_skill_context,
     auditor_skill_context,
@@ -70,6 +74,29 @@ def build_prologue_prompt(brief: Brief, blueprint: StoryBlueprint) -> str:
     )
 
 
+def prior_text_before_chapter(
+    blueprint: StoryBlueprint,
+    drafts_by_index: dict[int, ChapterDraft],
+    *,
+    before_index: int,
+    prologue_text: str | None,
+) -> str | None:
+    """Concatenate prologue + prior chapters for continuity on partial rewrites."""
+    parts: list[str] = []
+    if prologue_text and prologue_text.strip():
+        parts.append(prologue_text.strip())
+    for ch in sorted(blueprint.chapters, key=lambda c: c.index):
+        if ch.index >= before_index:
+            break
+        draft = drafts_by_index.get(ch.index)
+        if draft and draft.content.strip():
+            parts.append(draft.content.strip())
+    if not parts:
+        return None
+    combined = "\n\n".join(parts)
+    return combined[-800:]
+
+
 def build_chapter_prompt(
     brief: Brief,
     blueprint: StoryBlueprint,
@@ -77,6 +104,7 @@ def build_chapter_prompt(
     *,
     previous_excerpt: str | None,
     total_chapters: int,
+    auditor_verdict: AuditorVerdict | None = None,
 ) -> str:
     twist = blueprint.twist_sheet
     prev = ""
@@ -85,8 +113,15 @@ def build_chapter_prompt(
             "\n## Continuité (fin du bloc précédent)\n"
             f"{previous_excerpt[-800:]}\n"
         )
+    feedback = ""
+    if auditor_verdict is not None:
+        feedback = format_auditor_rewrite_section(
+            auditor_verdict,
+            chapter_index=chapter.index,
+        )
     return (
         writer_skill_context()
+        + feedback
         + f"## Chapitre {chapter.index} / {total_chapters} : « {chapter.title} »\n"
         f"- Langue : {brief.lang}\n"
         f"- Cible : ~{chapter.target_words} mots (±15 %)\n"
@@ -125,7 +160,9 @@ def build_auditor_prompt(
         "Retourne un `AuditorVerdict` :\n"
         f"- `checklist_scores` avec clés : {_CHECKLIST_KEYS}\n"
         "- `passed=true` si `overall_score` ≥ 70 et aucun critère à 0.\n"
-        "- `chapters_to_rewrite` : [] ou 1–2 index de chapitres faibles seulement.\n\n"
+        "- `chapters_to_rewrite` : [] ou 1–2 index de chapitres faibles seulement.\n"
+        "- `issues` et `review_markdown` : concrets — ils seront injectés dans les prompts "
+        "de réécriture des chapitres concernés et dans la passe éditeur suivante.\n\n"
         f"--- MANUSCRIT ---\n{manuscript}\n"
     )
 

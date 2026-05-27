@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Union
@@ -20,6 +21,7 @@ from agentic_writer.editorial_io import (
     build_chapter_prompt,
     build_prologue_prompt,
     normalize_blueprint_chapters,
+    prior_text_before_chapter,
     save_chapter_artifacts,
 )
 from agentic_writer.editorial_models import (
@@ -53,17 +55,16 @@ StepHook = Callable[[int, str], Awaitable[None] | None]
 UsageHook = Callable[[UsageLedger], Awaitable[None] | None]
 DoneDetail = Union[str, Callable[[], str | None], None]
 
-IDX_BRIEF = 0
-IDX_ARCHITECT = 1
-IDX_CHAPTERS = 2
-IDX_EDITOR = 3
-IDX_AUDITOR = 4
-IDX_ARTIFACTS = 5
-IDX_PRINT = 6
-
-
 class PipelineError(Exception):
     """Pipeline step failed."""
+
+
+def _step_index(labels: list[str], needle: str) -> int:
+    key = needle.lower()
+    for i, label in enumerate(labels):
+        if key in label.lower():
+            return i
+    raise PipelineError(f"Étape introuvable dans le pipeline : {needle!r}")
 
 
 async def _maybe_await(result: Awaitable[None] | None) -> None:
@@ -98,17 +99,22 @@ async def _write_chapters(
     chapter_model: str,
     on_usage: UsageHook | None = None,
     rewrite_indices: set[int] | None = None,
+    existing_drafts: list[ChapterDraft] | None = None,
+    existing_prologue: str | None = None,
+    auditor_verdict: AuditorVerdict | None = None,
 ) -> tuple[list[ChapterDraft], str | None]:
     from agentic_writer.agents.chapter_writer import ChapterWriterResult
 
     drafts_by_index: dict[int, ChapterDraft] = {}
-    previous: str | None = None
-    prologue_text: str | None = None
+    existing_by_index = {d.index: d for d in (existing_drafts or [])}
+    partial = rewrite_indices is not None
+    previous: str | None = existing_prologue if partial else None
+    prologue_text: str | None = existing_prologue if partial else None
     plan = chapter_plan_for(brief.format)
 
     total = len(blueprint.chapters)
 
-    if plan.include_prologue and blueprint.prologue_beat:
+    if plan.include_prologue and blueprint.prologue_beat and not partial:
         prologue_result = await run_agent_tracked(
             chapter_agent,
             build_prologue_prompt(brief, blueprint),
@@ -121,14 +127,25 @@ async def _write_chapters(
         previous = prologue_text
 
     for chapter in blueprint.chapters:
-        if rewrite_indices is not None and chapter.index not in rewrite_indices:
+        if partial and chapter.index not in rewrite_indices:
             continue
+        if partial:
+            merged = {**existing_by_index, **drafts_by_index}
+            excerpt = prior_text_before_chapter(
+                blueprint,
+                merged,
+                before_index=chapter.index,
+                prologue_text=prologue_text,
+            )
+        else:
+            excerpt = previous
         prompt = build_chapter_prompt(
             brief,
             blueprint,
             chapter,
-            previous_excerpt=previous,
+            previous_excerpt=excerpt,
             total_chapters=total,
+            auditor_verdict=auditor_verdict if partial else None,
         )
         chapter_result = await run_agent_tracked(
             chapter_agent,
@@ -174,6 +191,13 @@ async def run_pipeline(
     max_retries = settings["max_audit_retries"]
     labels = pipeline_step_labels(include_export=not md_only)
     total = len(labels)
+    idx_brief = _step_index(labels, "valider le brief")
+    idx_architect = _step_index(labels, "architecte")
+    idx_chapters = _step_index(labels, "writer")
+    idx_editor = _step_index(labels, "editor")
+    idx_auditor = _step_index(labels, "auditeur")
+    idx_artifacts = _step_index(labels, "artefacts")
+    idx_print = _step_index(labels, "print layout") if not md_only else None
     idx_delivery = total - 1
 
     log_pipeline_plan(brief.slug, labels, md_only=md_only)
@@ -204,9 +228,9 @@ async def run_pipeline(
         )
 
     await _run_step(
-        IDX_BRIEF,
+        idx_brief,
         total,
-        labels[IDX_BRIEF],
+        labels[idx_brief],
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_brief,
@@ -227,9 +251,9 @@ async def run_pipeline(
         )
 
     await _run_step(
-        IDX_ARCHITECT,
+        idx_architect,
         total,
-        labels[IDX_ARCHITECT],
+        labels[idx_architect],
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_architect,
@@ -252,9 +276,9 @@ async def run_pipeline(
         prologue_holder["text"] = prologue
 
     await _run_step(
-        IDX_CHAPTERS,
+        idx_chapters,
         total,
-        labels[IDX_CHAPTERS],
+        labels[idx_chapters],
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_chapters,
@@ -288,9 +312,9 @@ async def run_pipeline(
         edited_holder["out"] = edit_result.output
 
     await _run_step(
-        IDX_EDITOR,
+        idx_editor,
         total,
-        labels[IDX_EDITOR],
+        labels[idx_editor],
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_editor,
@@ -326,7 +350,8 @@ async def run_pipeline(
                 break
 
             retries += 1
-            log.info("Réécriture chapitres {}", sorted(rewrite))
+            log.info("Réécriture chapitres {} (retours auditeur)", sorted(rewrite))
+            prior_edit = edited_holder["out"]
             new_drafts, _ = await _write_chapters(
                 brief,
                 blueprint,
@@ -335,6 +360,9 @@ async def run_pipeline(
                 chapter_model=chapter_model,
                 on_usage=on_usage,
                 rewrite_indices=rewrite,
+                existing_drafts=drafts_holder["drafts"],
+                existing_prologue=prologue_holder["text"],
+                auditor_verdict=verdict,
             )
             by_idx = {d.index: d for d in drafts_holder["drafts"]}
             for d in new_drafts:
@@ -347,7 +375,12 @@ async def run_pipeline(
             )
             edit_result = await run_agent_tracked(
                 editor_agent,
-                build_edit_prompt(written_holder["out"], brief),
+                build_edit_prompt(
+                    written_holder["out"],
+                    brief,
+                    auditor_verdict=verdict,
+                    prior_editor=prior_edit,
+                ),
                 ledger=ledger,
                 label="éditeur (post-réécriture)",
                 model=settings["model_editor"],
@@ -356,9 +389,9 @@ async def run_pipeline(
             edited_holder["out"] = edit_result.output
 
     await _run_step(
-        IDX_AUDITOR,
+        idx_auditor,
         total,
-        labels[IDX_AUDITOR],
+        labels[idx_auditor],
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_audit_loop,
@@ -386,9 +419,9 @@ async def run_pipeline(
         work_holder["path"] = work
 
     await _run_step(
-        IDX_ARTIFACTS,
+        idx_artifacts,
         total,
-        labels[IDX_ARTIFACTS],
+        labels[idx_artifacts],
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_save,
@@ -400,17 +433,19 @@ async def run_pipeline(
         export_base = export_base_name(brief.slug, brief.format)
 
         async def _print() -> None:
-            build_docx(
+            await asyncio.to_thread(
+                build_docx,
                 brief.slug,
                 work,
                 edited_holder["out"].manuscript_corrected,
                 format=brief.format,
             )
 
+        assert idx_print is not None
         await _run_step(
-            IDX_PRINT,
+            idx_print,
             total,
-            labels[IDX_PRINT],
+            labels[idx_print],
             on_step_start=on_step_start,
             on_step_complete=on_step_complete,
             work=_print,

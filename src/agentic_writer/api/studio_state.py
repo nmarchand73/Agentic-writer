@@ -53,6 +53,18 @@ def ensure_pipeline_steps(
         state.steps = expected
 
 
+def reset_pipeline_step_statuses(state: StudioState) -> None:
+    """Pending before a new run (avoids a stuck 'running' from a crashed prior run)."""
+    for step in state.steps:
+        step.status = "pending"
+
+
+def mark_all_pipeline_steps_completed(state: StudioState) -> None:
+    """Final UI sync when the pipeline finished successfully."""
+    for step in state.steps:
+        step.status = "completed"
+
+
 def patch_step_status(index: int, status: StepStatus) -> dict[str, Any]:
     return {"op": "replace", "path": f"/steps/{index}/status", "value": status}
 

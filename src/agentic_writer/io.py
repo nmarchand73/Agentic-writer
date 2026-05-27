@@ -7,7 +7,12 @@ from pathlib import Path
 
 from agentic_writer.config import output_dir
 from agentic_writer.log_config import get_logger
+from agentic_writer.editorial_models import AuditorVerdict
 from agentic_writer.models import Brief, EditorResult, WriterResult
+from agentic_writer.rewrite_feedback import (
+    format_auditor_manuscript_rewrite_section,
+    format_editor_rewrite_section,
+)
 from agentic_writer.skill_content import editor_skill_context
 
 log = get_logger("io")
@@ -31,10 +36,22 @@ def save_artifacts(brief: Brief, written: WriterResult, edited: EditorResult) ->
     return work
 
 
-def build_edit_prompt(written: WriterResult, brief: Brief) -> str:
+def build_edit_prompt(
+    written: WriterResult,
+    brief: Brief,
+    *,
+    auditor_verdict: AuditorVerdict | None = None,
+    prior_editor: EditorResult | None = None,
+) -> str:
     twist = written.twist_sheet
+    rewrite_ctx = ""
+    if auditor_verdict is not None:
+        rewrite_ctx += format_auditor_manuscript_rewrite_section(auditor_verdict)
+    if prior_editor is not None:
+        rewrite_ctx += format_editor_rewrite_section(prior_editor)
     return (
         editor_skill_context()
+        + rewrite_ctx
         + f"## Brief\n"
         f"- Format : {brief.format}\n"
         f"- Langue : {brief.lang}\n"

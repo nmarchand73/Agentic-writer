@@ -12,8 +12,10 @@ from agentic_writer.api.studio_progress import get_studio_progress_bridge
 from agentic_writer.api.studio_state import (
     StudioState,
     ensure_pipeline_steps,
+    mark_all_pipeline_steps_completed,
     patch_step_status,
     patch_usage_fields,
+    reset_pipeline_step_statuses,
 )
 from agentic_writer.usage_cost import UsageLedger
 from agentic_writer.config import load_settings
@@ -112,6 +114,7 @@ def create_studio_agent() -> Agent[StateDeps[StudioState], str]:
 
         include_export = not state.md_only
         ensure_pipeline_steps(state, include_export=include_export)
+        reset_pipeline_step_statuses(state)
 
         state.manuscript_md = None
         state.manuscript_preview = None
@@ -195,6 +198,7 @@ def create_studio_agent() -> Agent[StateDeps[StudioState], str]:
             state.manuscript_md = result.edited.manuscript_corrected
             state.manuscript_preview = result.edited.manuscript_corrected[:500]
             state.error = None
+            mark_all_pipeline_steps_completed(state)
             msg = f"Nouvelle générée → {result.output_dir}"
             _emit_snapshot(state)
         except Exception as exc:

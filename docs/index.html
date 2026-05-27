@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agentic Writer</title>
+  <meta name="description" content="AI story pipeline with CopilotKit + AG-UI Studio, CLI export to docx/PDF, and Gherkin BDD." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Literata:opsz,wght@7..72,500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f6f4f1;
+      --fg: #1a1816;
+      --muted: #6b6560;
+      --accent: #5b4bb7;
+      --accent-soft: #ede9fe;
+      --border: #e2ddd6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "DM Sans", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    h1 {
+      font-family: Literata, Georgia, serif;
+      font-weight: 500;
+      font-size: 2rem;
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    .lead { font-size: 1.05rem; color: var(--muted); margin: 0 0 1.5rem; }
+  .lead a { color: var(--accent); }
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 0.75rem; }
+    .card ul { margin: 0; padding-left: 1.2rem; }
+    .card li { margin-bottom: 0.35rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+    .btn {
+      display: inline-block;
+      padding: 0.55rem 1rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--fg);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #5b4bb7, #d97706);
+      color: #fff;
+      border: none;
+    }
+    footer { margin-top: 2.5rem; font-size: 0.8rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="badge">CopilotKit · AG-UI · Pydantic AI</span>
+    <h1>Agentic Writer</h1>
+    <p class="lead">
+      Automated fiction pipeline (Writer → Editor → markdown → <strong>docx/PDF</strong>).
+      The Studio uses <a href="https://www.copilotkit.ai/">CopilotKit</a> v2 and
+      <a href="https://docs.ag-ui.com/">AG-UI</a> for generative UI—live pipeline state, not chat-only.
+      Same flow via CLI for headless runs.
+    </p>
+
+    <div class="card">
+      <h2>Stack</h2>
+      <ul>
+        <li>Python — Pydantic AI, FastAPI <code>/agui</code>, Typer CLI</li>
+        <li>Next.js — CopilotKit runtime, persisted threads</li>
+        <li>Skills — story-writer, manuscript-editor, print-layout</li>
+        <li>Tests — Gherkin BDD (pytest-bdd), CI without OpenAI</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Quick start</h2>
+      <ul>
+        <li><code>uv sync --all-extras</code> · <code>npm install</code></li>
+        <li><code>cp .env.example .env</code> · set <code>OPENAI_API_KEY</code></li>
+        <li>CLI: <code>uv run agentic-writer generate …</code></li>
+        <li>Studio: <code>uv run agentic-writer serve</code> + <code>cd web && npm run dev</code></li>
+      </ul>
+    </div>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="https://github.com/nmarchand73/Agentic-writer">View on GitHub</a>
+      <a class="btn" href="https://github.com/nmarchand73/Agentic-writer#readme">README</a>
+      <a class="btn" href="https://github.com/nmarchand73/Agentic-writer/tree/main/specs/bdd">BDD specs</a>
+    </div>
+
+    <footer>
+      GitHub Pages landing · run Studio locally for the full interactive UI (requires your API key and backend).
+    </footer>
+  </div>
+</body>
+</html>

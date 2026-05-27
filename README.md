@@ -1,127 +1,177 @@
 # Agentic Writer
 
-**Pipeline récit** : **Writer** (`story-writer`) → **Editor** (`manuscript-editor`) → artefacts markdown → **Print layout** (`print-layout`, calqué `twilight-zone-novelist`) → docx / pdf A5 Palatino.
+Automated **story pipeline** (Writer → Editor → markdown → **docx/pdf**). The **Studio** uses **[CopilotKit](https://www.copilotkit.ai/) v2** + **[AG-UI](https://docs.ag-ui.com/)**: **Pydantic AI** serves `/agui`, **Next.js** runs the CopilotKit runtime (`HttpAgent`, persisted threads). **Generative UI** syncs pipeline steps, manuscript, and errors via shared agent state (`STATE_SNAPSHOT` / `STATE_DELTA`)—not chat-only. **CLI** runs the same pipeline headlessly.
 
-Plan détaillé : [`../doc/agentic-writer/plan.md`](../doc/agentic-writer/plan.md)
+**Site:** [nmarchand73.github.io/Agentic-writer](https://nmarchand73.github.io/Agentic-writer/) (overview) · full Studio runs locally.
 
-## Setup
+---
+
+## Why this stack
+
+### CopilotKit, AG-UI & generative UI
+
+| Benefit | What you get |
+|---------|----------------|
+| **Standard agent ↔ UI wire** | AG-UI events (SSE) instead of ad-hoc WebSockets or custom JSON for every screen. |
+| **Generative UI, not chat-only** | Pipeline steps, slug, errors, and deliverables live in **shared agent state**—the React tree reacts to `STATE_DELTA` while tools run. |
+| **Backend freedom** | Python agent (Pydantic AI + skills) stays in FastAPI; the UI stays in Next.js via `HttpAgent`—clear split, same contract as other AG-UI clients. |
+| **Threads & replay** | CopilotKit v2 multi-route API + on-disk persistence: resume conversations and reconnect without re-prompting from scratch. |
+| **Progress on long tools** | `StudioProgressBridge` streams step updates during `run_story_generation`, so the UI does not freeze until the tool returns. |
+| **Faster product iteration** | CopilotKit chat, suggestions, and runtime plumbing are off-the-shelf; you focus on story tools and `StudioState`. |
+
+### BDD (Gherkin + pytest-bdd)
+
+Specs live in [`specs/bdd/`](specs/bdd/)—executable contracts, not slide-ware.
+
+| Benefit | What you get |
+|---------|----------------|
+| **Shared language** | Product-style scenarios (`Given` / `When` / `Then`) that devs, QA, and future-you can read without spelunking test code. |
+| **CI without OpenAI** | Markers `bootstrap`, `unit`, `integration`, `ui` cover doctor, CLI, pipeline, export, API, and threads with **mocked agents**—cheap, deterministic PR checks. |
+| **Slice-aligned coverage** | One feature file per concern (env, CLI, pipeline, export, Studio API, chat persistence, optional `e2e`). |
+| **Regression safety** | Changes to brief parsing, artefact paths, print-layout cleanup, or AG-UI state break a named scenario—not a vague “tests failed”. |
+| **Living documentation** | Scenarios document *observable* behaviour (files on disk, HTTP status, thread list); see [`specs/bdd/README.md`](specs/bdd/README.md). |
+
+---
+
+## Prerequisites
+
+- **uv** + Python ≥ 3.10  
+- **Node.js** ≥ 18 (docx export + Studio)  
+- **OpenAI API key** (generate / Studio; not needed for mocked tests)  
+- **LibreOffice** (`soffice`) — only for PDF export (skip with `--md-only`)
+
+---
+
+## Install
 
 ```bash
 cd Agentic-writer
 uv sync --all-extras
-cp .env.example .env   # OPENAI_API_KEY, OPENAI_MODEL (ex. openai-chat:gpt-4o)
-npm install            # dans Agentic-writer/ — requis pour l’export docx (package docx)
-uv run agentic-writer doctor
+npm install              # docx export (repo root)
+cd web && npm install && cd ..
+cp .env.example .env     # set OPENAI_API_KEY
+uv run agentic-writer doctor   # must exit 0
 ```
 
-## Logs (CLI)
+---
 
-Logging via [loguru](https://github.com/Delgan/loguru) sur stderr :
+## Configuration
 
-```bash
-uv run agentic-writer -v generate ...    # DEBUG
-uv run agentic-writer generate ...       # INFO (défaut)
-uv run agentic-writer -q generate ...    # WARNING+
-LOG_LEVEL=DEBUG uv run agentic-writer generate ...
+### Root `.env`
+
+| Variable | Required | Default / notes |
+|----------|----------|-----------------|
+| `OPENAI_API_KEY` | yes (live runs) | — |
+| `OPENAI_MODEL` | no | `openai-chat:gpt-4o` |
+| `LOG_LEVEL` | no | `INFO` |
+| `AGENTIC_WRITER_OUTPUT` | no | see `config.toml` → `NewBooks/output/` |
+| `AGENTIC_WRITER_THREADS_DIR` | no | `.data/studio-threads/` (Studio chats) |
+
+### `config.toml`
+
+```toml
+[defaults]
+format = "nouvelle"   # flash | nouvelle | novella
+lang = "fr"
+
+[output]
+root = "../output"
 ```
 
-Le pipeline affiche un plan numéroté puis chaque étape en direct, par ex. `[2/5] ▶ Writer — fiche twist + brouillon` puis `[2/5] ✓ …`.
-
-## CLI — exemples (mystère / UAP)
-
-### Vérifier l'environnement
+### Studio — `web/.env.local`
 
 ```bash
-uv run agentic-writer doctor
+NEXT_PUBLIC_AGENTIC_WRITER_API=http://127.0.0.1:8000
+AGENTIC_WRITER_AGUI_URL=http://127.0.0.1:8000/agui
 ```
 
-### Nouvelle — radar & disparition
+---
+
+## Run — CLI
 
 ```bash
-uv run agentic-writer generate dossier-lumiere-noire \
-  --pitch "Contrôleuse radar civile voit un blip UAP qui épouse sa route ; son mari jure qu'elle n'est jamais rentrée cette nuit-là." \
+uv run agentic-writer generate <slug> \
+  --pitch "Your pitch." \
   --format nouvelle \
   --lang fr
 ```
 
-Artefacts : `NewBooks/output/dossier-lumiere-noire/`
+| Flag | Purpose |
+|------|---------|
+| `--brief path.yaml` | YAML brief instead of inline slug/pitch |
+| `--md-only` | Stop after markdown (no docx/pdf) |
+| `-v` / `-q` | DEBUG / WARNING+ logs |
 
-### Flash — signal satellite
-
-```bash
-uv run agentic-writer generate signal-77 \
-  --pitch "Technicienne satellite capte une formation non cataloguée ; une voix de secours prononce le prénom de sa mère morte." \
-  --format flash \
-  --lang fr \
-  --md-only
-```
-
-### Brief YAML (reproductible)
+**Output:** `NewBooks/output/<slug>/` — `twist_sheet.json`, `draft_manuscript.md`, `review.md`, `manuscript_final.md`, optional `<slug>.docx` & `.pdf`.
 
 ```bash
-uv run agentic-writer generate --brief examples/briefs/dossier-lumiere-noire.yaml
 uv run agentic-writer generate --brief examples/briefs/flash-smoke.yaml --md-only
 ```
 
-Exemple de brief (`examples/briefs/dossier-lumiere-noire.yaml`) :
+---
 
-```yaml
-slug: dossier-lumiere-noire
-pitch: "Contrôleuse radar voit un blip UAP qui épouse sa route ; personne ne la voit rentrer."
-format: nouvelle
-lang: fr
-theme: mystère / UAP
-```
+## Run — Studio
 
-### Smoke test CI (sans appel API)
+**Terminal 1 — API**
 
 ```bash
-uv run pytest -m "bootstrap or unit or integration or ui"
-# persistance threads Studio (BDD 07, nécessite Node/npx pour le runner TS)
-uv run pytest tests/bdd/test_studio_threads.py -m ui
-```
-
-## Studio web — exemples
-
-Interface CopilotKit avec **Task Progress** (étapes Writer → Editor → export en direct).
-
-### Démarrage
-
-```bash
-# Terminal 1 — backend AG-UI (Pydantic AI)
-export OPENAI_API_KEY=sk-...
 uv run agentic-writer serve --port 8000
-
-# Terminal 2 — frontend Next.js
-cd web && npm install && npm run dev
-# → http://localhost:3000
 ```
 
-Le chat propose des **suggestions préconfigurées** (UAP, hangar scellé, archives, triangle noir, etc.).
-
-### Messages types (équivalents CLI)
-
-| Objectif | Message dans le chat |
-|----------|----------------------|
-| Flash UAP | `Génère une flash slug "signal-77" — pitch: formation lumineuse non cataloguée, voix de secours avec le prénom de sa mère morte.` |
-| Nouvelle radar | `Génère slug "dossier-lumiere-noire", format nouvelle — pitch: blip UAP sur sa route ; personne ne la voit rentrer.` |
-| Hangar scellé | `Génère slug "hangar-scelle" — pitch: base désaffectée, hangar de 1989 ouvert de l'intérieur, silhouette avec son badge actuel.` |
-| Flash EN | `Generate flash "black-triangle" — pitch: black triangle over suburb; school says Mom already picked up her daughter.` |
-
-L’agent crée d’abord le plan d’étapes (`STATE_SNAPSHOT`), puis lance le pipeline et met à jour chaque étape (`STATE_DELTA`) pendant l’exécution.
-
-Configuration runtime : `useSingleEndpoint={false}` côté React (routes REST `/info`, `/threads`, `/agent/.../run`).
-
-### Historique des conversations (mémoire niveau 2)
-
-Les chats Studio sont **persistés sur disque** dans `.data/studio-threads/` (un fichier JSON par conversation). Ils survivent au redémarrage de `npm run dev`.
-
-- Bouton **Historique** (en-tête) : reprendre une conversation passée ou en ouvrir une nouvelle.
-- Variable optionnelle : `AGENTIC_WRITER_THREADS_DIR` (chemin absolu du dossier de stockage).
-
-## Tests
+**Terminal 2 — UI**
 
 ```bash
-uv run pytest -m "bootstrap or unit or integration or ui"
-uv run pytest -m e2e   # requires OPENAI_API_KEY
+cd web && npm run dev
 ```
+
+Open [http://localhost:3000](http://localhost:3000). Use **History** in the header to resume past chats (stored under `.data/studio-threads/`).
+
+---
+
+## Run — tests
+
+From `Agentic-writer/`:
+
+```bash
+# CI suite (no OpenAI)
+uv run pytest -m "bootstrap or unit or integration or ui"
+
+# All Gherkin BDD specs
+uv run pytest tests/bdd/
+
+# Studio thread persistence (needs npx)
+uv run pytest tests/bdd/test_studio_threads.py -m ui
+
+# Live API (needs OPENAI_API_KEY)
+uv run pytest -m e2e
+```
+
+```bash
+cd web && npm run build   # optional frontend check
+```
+
+BDD details: [`specs/bdd/README.md`](specs/bdd/README.md).
+
+---
+
+## Layout
+
+```text
+Agentic-writer/     CLI, pipeline, skills, tests
+web/                Studio (Next.js)
+NewBooks/output/    generated stories (gitignored)
+.data/studio-threads/   Studio chat history (gitignored)
+```
+
+---
+
+## Troubleshooting
+
+| Issue | Check |
+|-------|--------|
+| `doctor` fails | `skills/story-writer/SKILL.md`, `npm install` at root |
+| No docx/pdf | Node + `docx` package; or use `--md-only` |
+| No PDF | LibreOffice / `soffice` |
+| Studio empty / errors | `serve` running, `OPENAI_API_KEY`, `web/.env.local` URLs |
+
+Further design notes: [`../doc/agentic-writer/plan.md`](../doc/agentic-writer/plan.md).

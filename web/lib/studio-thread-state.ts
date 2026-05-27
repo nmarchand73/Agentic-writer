@@ -78,7 +78,15 @@ export function mergeStudioState(
   persisted: StudioAgentState | null,
   isRunning: boolean,
 ): StudioAgentState {
-  if (isRunning) return live;
+  if (isRunning) {
+    return {
+      ...live,
+      usage_input_tokens: live.usage_input_tokens ?? persisted?.usage_input_tokens,
+      usage_output_tokens: live.usage_output_tokens ?? persisted?.usage_output_tokens,
+      usage_requests: live.usage_requests ?? persisted?.usage_requests,
+      estimated_cost_usd: live.estimated_cost_usd ?? persisted?.estimated_cost_usd,
+    };
+  }
   if (live.steps?.length) return live;
   if (!persisted) return live;
   return {

@@ -116,6 +116,10 @@ def create_studio_agent() -> Agent[StateDeps[StudioState], str]:
         state.manuscript_md = None
         state.manuscript_preview = None
         state.output_dir = None
+        state.usage_input_tokens = 0
+        state.usage_output_tokens = 0
+        state.usage_requests = 0
+        state.estimated_cost_usd = None
 
         # Snapshot obligatoire avant tout STATE_DELTA (sinon le client a state={})
         _emit_snapshot(state)
@@ -164,8 +168,13 @@ def create_studio_agent() -> Agent[StateDeps[StudioState], str]:
                     estimated_cost_usd=state.estimated_cost_usd,
                 ),
             )
+            snapshot = StateSnapshotEvent(
+                type=EventType.STATE_SNAPSHOT,
+                snapshot=state.model_dump(),
+            )
             if bridge is not None:
                 bridge.emit_nowait(delta)
+                bridge.emit_nowait(snapshot)
 
         brief = Brief(
             slug=state.slug,

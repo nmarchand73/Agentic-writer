@@ -1,6 +1,6 @@
 # Agentic Writer
 
-Automated **editorial story pipeline**: plan twists and chapters, write **chapter by chapter**, edit, adversarial audit, then **docx/pdf**. Same `run_pipeline()` for **CLI** (`generate`) and **Studio** ([CopilotKit](https://www.copilotkit.ai/) + [AG-UI](https://docs.ag-ui.com/) — live steps, manuscript preview, thread history).
+Automated **editorial story pipeline**: plan twists and chapters, write **chapter by chapter**, edit, adversarial audit, then **docx/pdf**. Same `run_pipeline()` for **CLI** (`generate`) and **Studio** ([CopilotKit](https://www.copilotkit.ai/) + [AG-UI](https://docs.ag-ui.com/) — live steps, **cumulative token usage and USD estimate**, manuscript preview, thread history).
 
 **Site:** [nmarchand73.github.io/Agentic-writer](https://nmarchand73.github.io/Agentic-writer/) · **Design notes:** [`../doc/agentic-writer/plan.md`](../doc/agentic-writer/plan.md) · **Diagram sources:** [`docs/diagrams/`](docs/diagrams/)
 
@@ -264,7 +264,7 @@ GitHub Pages = static `docs/` only. Live Studio needs **Node** (web) + **Python*
 
 **Editorial pipeline** — Twist and chapter plan before prose; one LLM call per chapter (length targets per format); adversarial audit with optional targeted rewrite; programmatic guards on word count and `TwistSheet`.
 
-**CopilotKit + AG-UI** — SSE agent wire; generative UI via `StudioState` (`STATE_SNAPSHOT` / `STATE_DELTA`); live `TaskProgress`; **thread persistence** and **state hydration** when reopening History (pipeline steps restored from disk).
+**CopilotKit + AG-UI** — SSE agent wire; generative UI via `StudioState` (`STATE_SNAPSHOT` / `STATE_DELTA`); live `TaskProgress` and **UsageCostBar** (input/output tokens, LLM call count, estimated USD after each agent); **thread persistence** and **state hydration** when reopening History (pipeline steps and usage restored from disk).
 
 **BDD** — Executable specs in [`specs/bdd/`](specs/bdd/); CI (`bootstrap`, `unit`, `integration`, `ui`) without OpenAI; **e2e** live runs use **`format=flash`** and `--md-only` only.
 
@@ -275,7 +275,7 @@ GitHub Pages = static `docs/` only. Live Studio needs **Node** (web) + **Python*
 - **uv** + Python ≥ 3.10
 - **Node.js** ≥ 18
 - **OpenAI API key** (generate / Studio; not for mocked tests)
-- **LibreOffice** (`soffice`) — PDF only (or `--md-only`)
+- **LibreOffice** (`soffice`) — PDF only (or `--md-only`). macOS: `brew install --cask libreoffice`, then ensure `soffice` is on `PATH` (often `/Applications/LibreOffice.app/Contents/MacOS`).
 
 ---
 
@@ -310,6 +310,14 @@ uv run agentic-writer doctor
 | `OPENAI_MODEL_AUDITOR` | Adversarial audit |
 
 Tip: use a stronger model for Architect/Chapter and a cheaper one for Auditor (e.g. `gpt-4.1-mini` + `gpt-4.1-nano`).
+
+**Usage & cost estimates** — Each pipeline LLM call records tokens via Pydantic AI `RunUsage`. USD totals use bundled [`src/agentic_writer/data/openai_pricing.json`](src/agentic_writer/data/openai_pricing.json) (Standard tier, parsed from [OpenAI pricing docs](https://developers.openai.com/api/docs/pricing)). Refresh locally:
+
+```bash
+uv run python scripts/refresh_openai_pricing.py
+```
+
+Studio shows a running total in the chat column; the CLI logs per-step usage when `LOG_LEVEL=INFO`.
 
 ---
 
@@ -369,7 +377,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - **History** — persisted under `.data/studio-threads/`; pipeline step state rehydrated when you reopen a thread.
 - **Formats livre** — collapsible table (`flash` / `nouvelle` / `novella`) above the chat.
-- Chat: describe slug, pitch, format, and lang; the studio agent calls `create_pipeline_plan` then `run_story_generation`.
+- **Tokens & coût** — card above `TaskProgress` during generation: cumulative input/output tokens, LLM call count, and estimated USD (updates after each architect / chapter / editor / auditor call; resets at the start of each run).
+- **Chat** — welcome suggestions use the pattern `Format · langue · export — thème`; describe slug, pitch, format, and lang; the studio agent calls `create_pipeline_plan` then `run_story_generation`.
 
 ---
 
@@ -395,6 +404,8 @@ Details: [`specs/bdd/README.md`](specs/bdd/README.md).
 | `doctor` fails | `skills/story-writer`, `story-architect`, `story-auditor`, `print-layout`; root `npm install` |
 | Pipeline steps empty in History | Reopen thread after a completed run; check `GET /api/copilotkit/threads/:id/state` |
 | No docx/pdf | Node + `docx`; or `--md-only` |
-| No PDF | LibreOffice / `soffice` |
+| No PDF | LibreOffice / `soffice` on `PATH` (see Prerequisites) |
 | Studio errors | `serve` up, `OPENAI_API_KEY`, `web/.env.local` |
-| High API cost | Prefer `--format flash`; tune per-role models in `.env` |
+| Usage bar stuck at 0 | Confirm generation started (`run_story_generation`); check API logs; reopen thread after run |
+| Cost shows “prix non estimé” | Model id not in `openai_pricing.json` — run `scripts/refresh_openai_pricing.py` or align `OPENAI_MODEL_*` with a listed model |
+| High API cost | Prefer `--format flash`; tune per-role models in `.env`; watch Studio usage bar |

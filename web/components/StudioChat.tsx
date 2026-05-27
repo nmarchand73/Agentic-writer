@@ -2,7 +2,6 @@
 
 import {
   CopilotKit,
-  CopilotChat,
   useAgent,
   UseAgentUpdate,
   useConfigureSuggestions,
@@ -22,6 +21,7 @@ import {
   FetchErrorBanner,
   LoadingManuscript,
 } from "./StudioStatusCards";
+import { StudioChatPanel } from "./StudioChatPanel";
 import { TaskProgress } from "./TaskProgress";
 import { UsageCostBar } from "./UsageCostBar";
 import type { StudioAgentState } from "./types";
@@ -83,6 +83,7 @@ function ChatInner({ threadId, onSelectThread, onNewThread }: ChatInnerProps) {
 
   const showDelivery = Boolean(agentState.output_dir) && !agentState.error;
   const showManuscript = Boolean(markdown) && !agentState.error;
+  const isRunning = Boolean(agent?.isRunning);
 
   return (
     <div className="studio-shell flex flex-col h-screen w-full">
@@ -98,32 +99,12 @@ function ChatInner({ threadId, onSelectThread, onNewThread }: ChatInnerProps) {
 
       <main className="flex-1 flex flex-col min-h-0 overflow-y-auto">
         <div className="max-w-5xl w-full mx-auto px-4 py-5 flex flex-col gap-4 flex-1">
+          <StudioChatPanel isRunning={isRunning} />
           <StudioFormatHelp />
-          <section className="studio-card flex-1 min-h-[300px] flex flex-col overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-[var(--studio-border)] bg-[var(--studio-elevated)]">
-              <p className="text-xs font-medium text-[var(--studio-muted)]">
-                💬 Brief &amp; consignes — décris ton pitch, on s&apos;occupe du reste
-              </p>
-            </div>
-            <div className="flex-1 min-h-0 copilot-chat-wrap">
-              <CopilotChat
-                agentId={AGENT_ID}
-                className="h-full min-h-[280px]"
-                messageView={{
-                  children: ({ messageElements, interruptElement }) => (
-                    <div data-testid="copilot-message-list" className="flex flex-col">
-                      {messageElements}
-                      {interruptElement}
-                    </div>
-                  ),
-                }}
-              />
-            </div>
-          </section>
+
+          <UsageCostBar state={agentState} isRunning={isRunning} />
 
           {steps && steps.length > 0 && <TaskProgress steps={steps} />}
-
-          <UsageCostBar state={agentState} />
 
           {agentState.error && <ErrorBanner message={agentState.error} />}
 

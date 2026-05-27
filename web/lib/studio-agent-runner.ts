@@ -105,7 +105,10 @@ function diskState(data: StoredThread): Record<string, unknown> | null {
       state &&
       "delta" in event
     ) {
-      state = applyStateDelta(state, (event as { delta: unknown }).delta);
+      state = applyStateDelta(
+        state,
+        (event as unknown as { delta: unknown }).delta,
+      );
     }
   }
   return state;

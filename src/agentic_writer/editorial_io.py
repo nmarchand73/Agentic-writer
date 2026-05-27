@@ -12,6 +12,11 @@ from agentic_writer.editorial_models import (
 )
 from agentic_writer.editorial_plan import FormatChapterPlan
 from agentic_writer.models import Brief, TwistSheet
+from agentic_writer.skill_content import (
+    architect_skill_context,
+    auditor_skill_context,
+    writer_skill_context,
+)
 
 _CHECKLIST_KEYS = (
     "voice, twists_intact, foreshadowing, chapter_hooks, "
@@ -26,7 +31,8 @@ def build_architect_prompt(brief: Brief, plan: FormatChapterPlan) -> str:
         else "Prologue : non — laisser `prologue_beat` vide ou null."
     )
     return (
-        f"## Brief\n"
+        architect_skill_context()
+        + f"## Brief\n"
         f"- Titre : {brief.resolved_title()}\n"
         f"- Slug : {brief.slug}\n"
         f"- Format : {brief.format}\n"
@@ -51,7 +57,8 @@ def build_architect_prompt(brief: Brief, plan: FormatChapterPlan) -> str:
 def build_prologue_prompt(brief: Brief, blueprint: StoryBlueprint) -> str:
     twist = blueprint.twist_sheet
     return (
-        f"## Prologue choc\n"
+        writer_skill_context()
+        + f"## Prologue choc\n"
         f"- Langue : {brief.lang}\n"
         f"- Cible : 200–400 mots dans `content`.\n"
         f"- Beat : {blueprint.prologue_beat}\n\n"
@@ -79,7 +86,8 @@ def build_chapter_prompt(
             f"{previous_excerpt[-800:]}\n"
         )
     return (
-        f"## Chapitre {chapter.index} / {total_chapters} : « {chapter.title} »\n"
+        writer_skill_context()
+        + f"## Chapitre {chapter.index} / {total_chapters} : « {chapter.title} »\n"
         f"- Langue : {brief.lang}\n"
         f"- Cible : ~{chapter.target_words} mots (±15 %)\n"
         f"- Beat : {chapter.beat}\n"
@@ -101,7 +109,8 @@ def build_auditor_prompt(
 ) -> str:
     guards = "\n".join(f"- {g}" for g in guard_issues) or "- (aucune alerte programmatique)"
     return (
-        f"## Contexte\n"
+        auditor_skill_context()
+        + f"## Contexte\n"
         f"- Format : {brief.format}\n"
         f"- Langue : {brief.lang}\n"
         f"- Titre : {brief.resolved_title()}\n\n"

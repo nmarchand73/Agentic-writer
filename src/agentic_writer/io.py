@@ -8,6 +8,7 @@ from pathlib import Path
 from agentic_writer.config import output_dir
 from agentic_writer.log_config import get_logger
 from agentic_writer.models import Brief, EditorResult, WriterResult
+from agentic_writer.skill_content import editor_skill_context
 
 log = get_logger("io")
 
@@ -33,7 +34,8 @@ def save_artifacts(brief: Brief, written: WriterResult, edited: EditorResult) ->
 def build_edit_prompt(written: WriterResult, brief: Brief) -> str:
     twist = written.twist_sheet
     return (
-        f"## Brief\n"
+        editor_skill_context()
+        + f"## Brief\n"
         f"- Format : {brief.format}\n"
         f"- Langue : {brief.lang}\n"
         f"- Titre : {brief.resolved_title()}\n\n"

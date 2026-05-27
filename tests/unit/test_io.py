@@ -30,6 +30,7 @@ def test_build_edit_prompt_includes_twist(tmp_path, monkeypatch):
     prompt = build_edit_prompt(written, brief)
     assert "TWIST_FINAL_X" in prompt
     assert "flash" in prompt
+    assert "Skill injectée" in prompt
     assert "# Draft" in prompt
 
 

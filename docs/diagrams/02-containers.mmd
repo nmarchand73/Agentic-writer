@@ -7,7 +7,7 @@ C4Container
     Container(cli, "CLI", "Python Typer", "generate serve doctor")
     Container(studio_web, "Studio Web", "Next.js", "React UI CopilotKit threads")
     Container(studio_api, "Studio API", "FastAPI", "agui REST manuscript pdf")
-    Container(pipeline, "Story Pipeline", "Python", "run_pipeline writer editor export")
+    Container(pipeline, "Story Pipeline", "Python", "run_pipeline architect chapters editor auditor export")
     ContainerDb(artifacts, "Artifacts store", "filesystem", "output per slug")
     ContainerDb(threads, "Thread store", "filesystem", "studio-threads folder")
   }
@@ -19,7 +19,7 @@ C4Container
   Rel(cli, pipeline, "Invokes")
   Rel(studio_web, studio_api, "AG-UI and REST", "HTTP SSE")
   Rel(studio_api, pipeline, "run_story_generation tool")
-  Rel(pipeline, openai, "Writer and Editor agents")
+  Rel(pipeline, openai, "Architect chapter writer editor auditor agents")
   Rel(pipeline, artifacts, "Writes twist md docx pdf")
   Rel(studio_api, artifacts, "Serves manuscript and pdf")
   Rel(studio_web, threads, "Persists threads")

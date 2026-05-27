@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+node_modules/
+web/.next/
+output/
+*.docx
+*.pdf
+*_unpacked/
+.pytest_cache/
+.data/
+dist/
+*.egg-info/

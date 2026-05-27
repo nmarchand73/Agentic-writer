@@ -1,0 +1,188 @@
+"""Studio agent — generative UI with pipeline steps (AG-UI state)."""
+
+from __future__ import annotations
+
+from textwrap import dedent
+
+from ag_ui.core import EventType, StateDeltaEvent, StateSnapshotEvent
+from pydantic_ai import Agent, RunContext, ToolReturn
+from pydantic_ai.ui import StateDeps
+
+from agentic_writer.api.studio_progress import get_studio_progress_bridge
+from agentic_writer.api.studio_state import (
+    PipelineStep,
+    StudioState,
+    default_pipeline_steps,
+    patch_step_status,
+)
+from agentic_writer.config import load_settings
+from agentic_writer.models import Brief
+from agentic_writer.log_config import get_logger
+from agentic_writer.pipeline import run_pipeline
+
+studio_log = get_logger("studio")
+
+STUDIO_INSTRUCTIONS = dedent("""
+    Tu es l'orchestrateur du studio Agentic Writer (pipeline récit : Writer → Editor → export).
+
+    Quand l'utilisateur demande de générer une nouvelle :
+    1. Extrais slug et pitch du message (ou demande-les brièvement).
+    2. Appelle TOUJOURS `create_pipeline_plan` puis `run_story_generation` (pas seulement décrire les étapes).
+    3. Ne répète pas la liste des étapes dans ta réponse — résume en une phrase avec emoji.
+
+    Format par défaut : nouvelle, langue fr. Export docx/pdf sauf si l'utilisateur demande markdown seul.
+""")
+
+
+def create_studio_agent() -> Agent[StateDeps[StudioState], str]:
+    settings = load_settings()
+
+    agent: Agent[StateDeps[StudioState], str] = Agent(
+        settings["openai_model"],
+        instructions=STUDIO_INSTRUCTIONS,
+        deps_type=StateDeps[StudioState],
+    )
+
+    def _emit_snapshot(state: StudioState) -> None:
+        bridge = get_studio_progress_bridge()
+        event = StateSnapshotEvent(
+            type=EventType.STATE_SNAPSHOT,
+            snapshot=state.model_dump(),
+        )
+        if bridge is not None:
+            bridge.emit_nowait(event)
+
+    @agent.tool
+    async def create_pipeline_plan(
+        ctx: RunContext[StateDeps[StudioState]],
+        slug: str,
+        pitch: str,
+        format: str = "nouvelle",
+        lang: str = "fr",
+        md_only: bool = False,
+    ) -> ToolReturn:
+        """Crée le plan d'étapes affiché dans l'UI (snapshot AG-UI)."""
+        state = StudioState(
+            slug=slug,
+            pitch=pitch,
+            format=format,  # type: ignore[arg-type]
+            lang=lang,  # type: ignore[arg-type]
+            steps=default_pipeline_steps(include_export=not md_only),
+            manuscript_md=None,
+            manuscript_preview=None,
+            output_dir=None,
+            error=None,
+        )
+        ctx.deps.state = state
+        _emit_snapshot(state)
+        return ToolReturn(
+            return_value="Plan pipeline récit créé.",
+            metadata=StateSnapshotEvent(
+                type=EventType.STATE_SNAPSHOT,
+                snapshot=state.model_dump(),
+            ),
+        )
+
+    @agent.tool_plain
+    async def update_plan_step(
+        index: int,
+        status: str,
+    ) -> ToolReturn:
+        """Met à jour une étape du plan (delta JSON Patch pour l'UI)."""
+        return ToolReturn(
+            return_value=f"Step {index} → {status}",
+            metadata=StateDeltaEvent(
+                type=EventType.STATE_DELTA,
+                delta=[patch_step_status(index, status)],  # type: ignore[arg-type]
+            ),
+        )
+
+    @agent.tool
+    async def run_story_generation(
+        ctx: RunContext[StateDeps[StudioState]],
+        slug: str | None = None,
+        pitch: str | None = None,
+        format: str | None = None,
+        lang: str | None = None,
+        md_only: bool = False,
+    ) -> ToolReturn:
+        """Exécute le pipeline Writer → Editor → export et met à jour les étapes en direct."""
+        state = ctx.deps.state
+        state.slug = slug or state.slug
+        state.pitch = pitch or state.pitch
+        if format:
+            state.format = format  # type: ignore[assignment]
+        if lang:
+            state.lang = lang  # type: ignore[assignment]
+        if not state.slug or not state.pitch:
+            state.error = "slug et pitch requis"
+            return ToolReturn(return_value=state.error)
+
+        if not state.steps:
+            state.steps = default_pipeline_steps(include_export=not md_only)
+
+        state.manuscript_md = None
+        state.manuscript_preview = None
+        state.output_dir = None
+
+        # Snapshot obligatoire avant tout STATE_DELTA (sinon le client a state={})
+        _emit_snapshot(state)
+
+        bridge = get_studio_progress_bridge()
+
+        def push_delta(index: int, status: str) -> None:
+            if index < len(state.steps):
+                state.steps[index].status = status  # type: ignore[assignment]
+            delta = StateDeltaEvent(
+                type=EventType.STATE_DELTA,
+                delta=[patch_step_status(index, status)],  # type: ignore[arg-type]
+            )
+            if bridge is not None:
+                bridge.emit_nowait(delta)
+
+        studio_log.info(
+            "Génération studio slug={} md_only={}",
+            state.slug,
+            md_only,
+        )
+
+        async def on_start(index: int, _label: str) -> None:
+            push_delta(index, "running")
+
+        async def on_complete(index: int, _label: str) -> None:
+            push_delta(index, "completed")
+
+        brief = Brief(
+            slug=state.slug,
+            pitch=state.pitch,
+            format=state.format,
+            lang=state.lang,
+        )
+
+        try:
+            result = await run_pipeline(
+                brief,
+                md_only=md_only,
+                on_step_start=on_start,
+                on_step_complete=on_complete,
+            )
+            state.output_dir = result.output_dir
+            state.manuscript_md = result.edited.manuscript_corrected
+            state.manuscript_preview = result.edited.manuscript_corrected[:500]
+            state.error = None
+            msg = f"Nouvelle générée → {result.output_dir}"
+            _emit_snapshot(state)
+        except Exception as exc:
+            state.error = str(exc)
+            msg = f"Échec : {exc}"
+            _emit_snapshot(state)
+
+        return ToolReturn(
+            return_value=msg,
+            metadata=StateSnapshotEvent(
+                type=EventType.STATE_SNAPSHOT,
+                snapshot=state.model_dump(),
+            ),
+        )
+
+    return agent

@@ -1,0 +1,6 @@
+[defaults]
+format = "nouvelle"
+lang = "fr"
+
+[output]
+root = "../output"

@@ -1,0 +1,392 @@
+@import "tailwindcss";
+
+@source "../components";
+@source ".";
+
+@import "@copilotkit/react-core/v2/styles.css";
+
+@theme {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-literata), "Palatino Linotype", Palatino, serif;
+}
+
+/* ── Studio design tokens ── */
+:root {
+  --studio-bg: #f6f4f1;
+  --studio-surface: #ffffff;
+  --studio-elevated: #efecea;
+  --studio-fg: #1a1816;
+  --studio-muted: #6b6560;
+  --studio-border: #e2ddd6;
+  --studio-accent: #5b4bb7;
+  --studio-accent-soft: #ede9fe;
+  --studio-progress-from: #5b4bb7;
+  --studio-progress-to: #d97706;
+}
+
+.dark {
+  --studio-bg: #0f0e12;
+  --studio-surface: #18161f;
+  --studio-elevated: #221f2a;
+  --studio-fg: #f4f1ec;
+  --studio-muted: #9c9590;
+  --studio-border: #2e2a36;
+  --studio-accent: #a89bff;
+  --studio-accent-soft: #2a2540;
+  --studio-progress-from: #7c6cf0;
+  --studio-progress-to: #f59e0b;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--studio-bg);
+  color: var(--studio-fg);
+}
+
+/* Fond discret type « page de bureau créative » */
+.studio-shell {
+  background-color: var(--studio-bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 100% 0%, color-mix(in srgb, var(--studio-accent) 12%, transparent), transparent),
+    radial-gradient(ellipse 60% 40% at 0% 100%, color-mix(in srgb, #d97706 8%, transparent), transparent);
+}
+
+.studio-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.studio-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--studio-progress-from), var(--studio-progress-to));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--studio-accent) 35%, transparent);
+}
+
+.studio-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+  color: var(--studio-accent);
+  background: var(--studio-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--studio-accent) 25%, transparent);
+}
+
+.studio-pill {
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  background: var(--studio-elevated);
+  border: 1px solid var(--studio-border);
+}
+
+.studio-pill-accent {
+  color: var(--studio-accent);
+  border-color: color-mix(in srgb, var(--studio-accent) 30%, transparent);
+  background: var(--studio-accent-soft);
+}
+
+.studio-card {
+  border-radius: 1rem;
+  border: 1px solid var(--studio-border);
+  background: var(--studio-surface);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, #000 4%, transparent),
+    0 8px 24px color-mix(in srgb, #000 4%, transparent);
+}
+
+.studio-card-success {
+  border-color: color-mix(in srgb, #10b981 35%, var(--studio-border));
+}
+
+.studio-file-chip {
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  background: var(--studio-elevated);
+  color: var(--studio-muted);
+  border: 1px solid var(--studio-border);
+}
+
+.studio-inline-code {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  background: var(--studio-elevated);
+  border: 1px solid var(--studio-border);
+}
+
+.studio-progress-bar {
+  background: linear-gradient(90deg, var(--studio-progress-from), var(--studio-progress-to));
+}
+
+.studio-step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.studio-step-active {
+  background: var(--studio-accent-soft);
+  border-color: color-mix(in srgb, var(--studio-accent) 25%, transparent);
+}
+
+.studio-step-done {
+  opacity: 0.92;
+}
+
+.studio-step-icon {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  background: var(--studio-elevated);
+  border: 1px solid var(--studio-border);
+  flex-shrink: 0;
+}
+
+.studio-step-done .studio-step-icon {
+  background: color-mix(in srgb, #10b981 15%, var(--studio-elevated));
+  border-color: color-mix(in srgb, #10b981 30%, transparent);
+  color: #059669;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.studio-step-icon-pulse {
+  animation: studio-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--studio-accent) 20%, transparent);
+}
+
+@keyframes studio-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.studio-loader {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 3px solid var(--studio-border);
+  border-top-color: var(--studio-accent);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Manuscrit — typo livre */
+.studio-manuscript-body {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--studio-fg);
+}
+
+.studio-manuscript-body h1 {
+  font-family: var(--font-sans);
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.studio-manuscript-body h2 {
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 2rem 0 0.75rem;
+  color: var(--studio-accent);
+}
+
+.studio-manuscript-body p {
+  margin-bottom: 1rem;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.studio-manuscript-body blockquote {
+  margin: 1.25rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--studio-accent);
+  font-style: italic;
+  color: var(--studio-muted);
+}
+
+/* CopilotKit — intégration plus clean */
+.copilot-chat-wrap .copilotKitChat {
+  background: transparent !important;
+  border: none !important;
+}
+
+.copilot-chat-wrap .copilotKitInput {
+  border-radius: 0.75rem !important;
+  border: 1px solid var(--studio-border) !important;
+  background: var(--studio-elevated) !important;
+}
+
+.studio-tab {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 0.45rem;
+  color: var(--studio-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.studio-tab:hover {
+  color: var(--studio-fg);
+}
+
+.studio-tab-active {
+  background: var(--studio-surface);
+  color: var(--studio-fg);
+  box-shadow: 0 1px 3px color-mix(in srgb, #000 8%, transparent);
+}
+
+.studio-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.studio-btn-ghost {
+  color: var(--studio-fg);
+  border: 1px solid var(--studio-border);
+  background: var(--studio-surface);
+}
+
+.studio-btn-ghost:hover {
+  background: var(--studio-elevated);
+}
+
+.studio-btn-primary {
+  color: #fff;
+  background: linear-gradient(135deg, var(--studio-progress-from), var(--studio-progress-to));
+  border: none;
+}
+
+.studio-btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+/* ── Historique des conversations (threads) ── */
+.studio-thread-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--studio-fg);
+  background: var(--studio-elevated);
+  border: 1px solid var(--studio-border);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.studio-thread-trigger:hover {
+  border-color: color-mix(in srgb, var(--studio-accent) 40%, var(--studio-border));
+  background: var(--studio-accent-soft);
+}
+
+.studio-thread-trigger-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.studio-thread-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 40;
+  width: min(20rem, calc(100vw - 2rem));
+  border-radius: 0.75rem;
+  border: 1px solid var(--studio-border);
+  background: var(--studio-surface);
+  box-shadow:
+    0 4px 12px color-mix(in srgb, #000 8%, transparent),
+    0 16px 40px color-mix(in srgb, #000 6%, transparent);
+}
+
+.studio-thread-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 0.25rem;
+}
+
+.studio-thread-item {
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--studio-fg);
+}
+
+.studio-thread-item:hover {
+  background: var(--studio-elevated);
+}
+
+.studio-thread-item-active {
+  background: var(--studio-accent-soft);
+}
+
+.studio-thread-delete {
+  align-self: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-right: 0.25rem;
+  border: none;
+  border-radius: 0.35rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--studio-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.studio-thread-delete:hover:not(:disabled) {
+  color: #dc2626;
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+}

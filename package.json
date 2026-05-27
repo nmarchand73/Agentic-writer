@@ -1,0 +1,7 @@
+{
+  "name": "agentic-writer-docx",
+  "private": true,
+  "dependencies": {
+    "docx": "^9.5.0"
+  }
+}

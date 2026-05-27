@@ -1,0 +1,66 @@
+[project]
+name = "agentic-writer"
+version = "0.1.0"
+description = "Story pipeline — Writer + Editor agents, CLI and AG-UI studio"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic-ai>=0.2.0",
+    "pydantic-ai-skills>=0.1.0",
+    "typer>=0.12.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "ag-ui-protocol>=0.1.18",
+    "loguru>=0.7.0",
+]
+
+[project.optional-dependencies]
+ag-ui = ["pydantic-ai-slim[ag-ui]>=0.2.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-bdd>=7.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "pydantic-evals>=0.1.0",
+]
+
+[project.scripts]
+agentic-writer = "agentic_writer.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentic_writer"]
+
+[tool.pytest.ini_options]
+markers = [
+    "agentic-writer: tag racine des features BDD (tiret, comme dans les .feature)",
+    "bootstrap: slice 1 — environnement (sans API)",
+    "unit: tests unitaires (sans API)",
+    "integration: pipeline / docx mockés (sans API)",
+    "e2e: CLI réelle + API",
+    "regression: evals + golden",
+    "slow: hors CI PR",
+    "requires_api: OPENAI_API_KEY requis",
+    "ui: slice 5 — AG-UI / studio",
+    "agentic_writer: alias underscore (filtres pytest)",
+    "cli: CLI scenarios",
+    "pipeline: pipeline scenarios",
+    "export: export scenarios",
+    "studio: studio scenarios",
+    "threads: persistance conversations Studio",
+]
+filterwarnings = [
+    # gherkin (pytest-bdd) + Python 3.14 : re.split(maxsplit) positionnel déprécié
+    "ignore:'maxsplit' is passed as positional:DeprecationWarning:gherkin.gherkin_line",
+]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+
+[tool.pytest-bdd]
+features_base_dir = "specs/bdd"

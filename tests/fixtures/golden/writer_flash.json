@@ -1,0 +1,12 @@
+{
+  "twist_sheet": {
+    "twist_final": "Golden twist final.",
+    "mid_twist": "Golden mid.",
+    "coda_bombe": "Golden coda.",
+    "mensonge_omission": "Golden lie.",
+    "scenes_recontextualisees": ["A", "B", "C"],
+    "indices_foreshadowing": ["I1", "I2"],
+    "pitch_booktok": "Short golden pitch here"
+  },
+  "manuscript": "Golden manuscript body."
+}

@@ -6,12 +6,35 @@ Automated **editorial story pipeline**: plan twists and chapters, write **chapte
 
 ### Pipeline (single path)
 
+Same `run_pipeline()` orchestrator for CLI and Studio: **write per chapter**, **edit and audit the full manuscript**, targeted rewrite when the auditor requests it.
+
 ```text
-Brief → Architecte (twist + plan) → Chapitres (story-writer) → Editor → Auditeur → artefacts → docx/pdf
+Brief
+  → Architect       (full plan: twists + N chapters, no long-form prose)
+  → Writer          (1 LLM call per prologue + 1 per chapter)
+  → [assembly]      (code → draft_manuscript.md)
+  → Editor          (1 call: FULL manuscript → manuscript_corrected)
+  → Auditor         (1 call: FULL corrected manuscript)
+       └─ on failure + chapters_to_rewrite:
+            → Writer    (1 call per listed chapter, with auditor feedback)
+            → [assembly]
+            → Editor    (FULL manuscript + auditor and prior editor feedback)
+            → Auditor   (retry, max AGENTIC_WRITER_MAX_AUDIT_RETRIES)
+  → Artifacts       (twist, blueprint, chapters, review, audit, manuscript_final.md)
+  → Print layout    (docx + pdf, unless --md-only)
 ```
 
-| Format | Chapitres planifiés | Mots cibles (garde-fous) |
-|--------|---------------------|---------------------------|
+| Step | Scope | Main output |
+|------|--------|-------------|
+| Architect | Story (plan) | `blueprint.json`, `twist_sheet.json` |
+| Writer | Prologue + each chapter | `chapters/*.md` |
+| Assembly | — | `draft_manuscript.md` |
+| Editor | Full manuscript | `manuscript_final.md` |
+| Auditor | Full manuscript | `audit_report.md` |
+| Print | Final manuscript | `<slug>-<format>.docx` / `.pdf` |
+
+| Format | Planned chapters | Target words (guards) |
+|--------|------------------|------------------------|
 | `flash` | 1 + prologue | 600–2 500 |
 | `nouvelle` | 7 + prologue | 7 000–16 000 |
 | `novella` | 16 + prologue | 28 000–52 000 |
@@ -204,10 +227,10 @@ C4Dynamic
 
 | Phase | Output in `output/<slug>/` |
 |-------|----------------------------|
-| Architecte | `blueprint.json`, `twist_sheet.json` |
-| Chapitres | `chapters/*.md`, `draft_manuscript.md` (assemblé) |
+| Architect | `blueprint.json`, `twist_sheet.json` |
+| Chapters | `chapters/*.md`, `draft_manuscript.md` (assembled) |
 | Editor | `review.md`, `manuscript_final.md` |
-| Auditeur | `audit_report.md` |
+| Auditor | `audit_report.md` |
 | Print | `<slug>-<format>.docx`, `<slug>-<format>.pdf` (e.g. `signal-77-flash.pdf`; omit with `--md-only`) |
 
 ### Deployment
@@ -376,9 +399,9 @@ cd web && npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 - **History** — persisted under `.data/studio-threads/`; pipeline step state rehydrated when you reopen a thread.
-- **Formats livre** — collapsible table (`flash` / `nouvelle` / `novella`) above the chat.
-- **Tokens & coût** — card above `TaskProgress` during generation: cumulative input/output tokens, LLM call count, and estimated USD (updates after each architect / chapter / editor / auditor call; resets at the start of each run).
-- **Chat** — welcome suggestions use the pattern `Format · langue · export — thème`; describe slug, pitch, format, and lang; the studio agent calls `create_pipeline_plan` then `run_story_generation`.
+- **Book formats** — collapsible table (`flash` / `nouvelle` / `novella`) above the chat.
+- **Tokens & cost** — card above `TaskProgress` during generation: cumulative input/output tokens, LLM call count, and estimated USD (updates after each architect / chapter / editor / auditor call; resets at the start of each run).
+- **Chat** — welcome suggestions use the pattern `Format · language · export — theme`; describe slug, pitch, format, and lang; the studio agent calls `create_pipeline_plan` then `run_story_generation`.
 
 ---
 
@@ -391,7 +414,7 @@ uv run pytest -m e2e                                        # live API, format f
 cd web && npm run build                                     # optional
 ```
 
-Logs pipeline (loguru) et stdlib s’affichent pendant les tests (`-s` dans `pyproject.toml`). Plus verbeux : `TEST_LOG_LEVEL=DEBUG uv run pytest …`.
+Pipeline logs (loguru) and stdlib output appear during tests (`-s` in `pyproject.toml`). More verbose: `TEST_LOG_LEVEL=DEBUG uv run pytest …`.
 
 Details: [`specs/bdd/README.md`](specs/bdd/README.md).
 
@@ -407,5 +430,5 @@ Details: [`specs/bdd/README.md`](specs/bdd/README.md).
 | No PDF | LibreOffice / `soffice` on `PATH` (see Prerequisites) |
 | Studio errors | `serve` up, `OPENAI_API_KEY`, `web/.env.local` |
 | Usage bar stuck at 0 | Confirm generation started (`run_story_generation`); check API logs; reopen thread after run |
-| Cost shows “prix non estimé” | Model id not in `openai_pricing.json` — run `scripts/refresh_openai_pricing.py` or align `OPENAI_MODEL_*` with a listed model |
+| Cost shows “price not estimated” | Model id not in `openai_pricing.json` — run `scripts/refresh_openai_pricing.py` or align `OPENAI_MODEL_*` with a listed model |
 | High API cost | Prefer `--format flash`; tune per-role models in `.env`; watch Studio usage bar |

@@ -7,6 +7,7 @@ from pathlib import Path
 from pydantic_ai import Agent, RunContext
 from pydantic_ai_skills import SkillsCapability
 
+from agentic_writer.agent_instructions import FORMATTER_INSTRUCTIONS
 from agentic_writer.config import PRINT_LAYOUT_SKILL_DIR, load_settings
 from agentic_writer.docx_build import build_docx
 from agentic_writer.pipeline import PipelineError
@@ -22,12 +23,7 @@ def create_formatter_agent() -> Agent[FormatterDeps, str]:
     settings = load_settings()
     agent: Agent[FormatterDeps, str] = Agent(
         settings["openai_model"],
-        instructions=(
-            "Tu es l'agent Print layout. Tu ne modifies jamais l'intrigue. "
-            "Lis la skill print-layout et references/modern_layout_guide.md si besoin. "
-            "Vérifie que le markdown respecte les conventions (# titre, ## chapitres, * * *). "
-            "Appelle format_for_print pour produire docx et pdf."
-        ),
+        instructions=FORMATTER_INSTRUCTIONS,
         deps_type=FormatterDeps,
         capabilities=[SkillsCapability(directories=[str(PRINT_LAYOUT_SKILL_DIR)])],
     )

@@ -30,13 +30,24 @@ def save_artifacts(brief: Brief, written: WriterResult, edited: EditorResult) ->
     return work
 
 
-def build_edit_prompt(written: WriterResult) -> str:
+def build_edit_prompt(written: WriterResult, brief: Brief) -> str:
     twist = written.twist_sheet
     return (
-        "Relis et corrige le manuscrit ci-dessous.\n"
-        "Les twists sont FIGÉS — ne modifie pas twist_sheet, seulement style et continuité.\n\n"
-        f"TWIST FINAL (figé) : {twist.twist_final}\n"
-        f"MID-TWIST (figé) : {twist.mid_twist}\n"
-        f"CODA (figée) : {twist.coda_bombe}\n\n"
+        f"## Brief\n"
+        f"- Format : {brief.format}\n"
+        f"- Langue : {brief.lang}\n"
+        f"- Titre : {brief.resolved_title()}\n\n"
+        "## Twists figés (sens inchangé — prose seulement)\n"
+        f"- Twist final : {twist.twist_final}\n"
+        f"- Mid-twist : {twist.mid_twist}\n"
+        f"- Coda : {twist.coda_bombe}\n"
+        f"- Mensonge / omission : {twist.mensonge_omission}\n"
+        f"- Pitch BookTok : {twist.pitch_booktok}\n\n"
+        "## Livrable\n"
+        "Retourne un `EditorResult` :\n"
+        "- `review_markdown` avec exemples concrets pour scores < 2.\n"
+        "- `checklist_scores` : voice, twists_intact, foreshadowing, chapter_hooks, "
+        "pitch_booktok, format_length, continuity (0–2).\n"
+        "- `manuscript_corrected` : manuscrit entier, structure `#` / `##` conservée.\n\n"
         f"--- MANUSCRIT ---\n{written.manuscript}\n"
     )

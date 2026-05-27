@@ -15,6 +15,14 @@ Relecture **adversariale** du manuscrit corrigé :
 - `passed=true` seulement si score global ≥ 70 et aucun critère critique à 0.
 - Lister `chapters_to_rewrite` (indices) si 1–2 chapitres faiblent sans refonte globale.
 
+## Workflow
+
+1. `load_skill` sur `story-auditor`.
+2. `read_skill_resource` pour `manuscript-editor/references/review_rubric.md` (ou équivalent listé par `load_skill`).
+3. Évaluer le manuscrit fourni dans le prompt ; retourner `AuditorVerdict` (scores, `passed`, `chapters_to_rewrite` optionnel).
+
+**Pas de scripts** — ne pas appeler `run_skill_script` (aucun script n’est attaché à ce skill).
+
 ## Références
 
-`manuscript-editor/references/review_rubric.md` et guides `story-writer` en lecture seule.
+`manuscript-editor/references/review_rubric.md` et guides `story-writer` en lecture seule via `read_skill_resource`.

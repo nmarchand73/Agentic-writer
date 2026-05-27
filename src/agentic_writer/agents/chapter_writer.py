@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from pydantic_ai import Agent
 
+from agentic_writer.agent_instructions import CHAPTER_WRITER_INSTRUCTIONS
 from agentic_writer.config import load_settings
 from agentic_writer.skills import writer_capability
 
@@ -19,11 +20,7 @@ def create_chapter_writer_agent() -> Agent[None, ChapterWriterResult]:
     model = settings.get("model_chapter") or settings["model_writer"]
     return Agent(
         model,
-        instructions=(
-            "Tu es l'écrivain chapitre (skill story-writer). "
-            "Rédige UN seul chapitre en markdown, voix McFadden, sans résumer les autres chapitres. "
-            "Ne change pas les twists fournis."
-        ),
+        instructions=CHAPTER_WRITER_INSTRUCTIONS,
         output_type=ChapterWriterResult,
         capabilities=[writer_capability()],
     )

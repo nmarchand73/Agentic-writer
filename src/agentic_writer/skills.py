@@ -14,6 +14,9 @@ from agentic_writer.config import (
     WRITER_SKILL_DIR,
 )
 
+# Pipeline agents only need load_skill / read_skill_resource — not shell scripts.
+_EXCLUDE_SKILL_SCRIPTS: list[str] = ["run_skill_script"]
+
 
 def _skill_name_from_path(path: Path) -> str | None:
     skill_md = path / "SKILL.md"
@@ -45,24 +48,30 @@ def list_skill_names(directories: list[Path]) -> list[str]:
 
 
 def writer_capability() -> SkillsCapability:
-    return SkillsCapability(directories=[str(WRITER_SKILL_DIR)])
+    return SkillsCapability(
+        directories=[str(WRITER_SKILL_DIR)],
+        exclude_tools=_EXCLUDE_SKILL_SCRIPTS,
+    )
 
 
 def editor_capability() -> SkillsCapability:
     return SkillsCapability(
-        directories=[str(EDITOR_SKILL_DIR), str(WRITER_SKILL_DIR)]
+        directories=[str(EDITOR_SKILL_DIR), str(WRITER_SKILL_DIR)],
+        exclude_tools=_EXCLUDE_SKILL_SCRIPTS,
     )
 
 
 def architect_capability() -> SkillsCapability:
     return SkillsCapability(
-        directories=[str(ARCHITECT_SKILL_DIR), str(WRITER_SKILL_DIR)]
+        directories=[str(ARCHITECT_SKILL_DIR), str(WRITER_SKILL_DIR)],
+        exclude_tools=_EXCLUDE_SKILL_SCRIPTS,
     )
 
 
 def auditor_capability() -> SkillsCapability:
     return SkillsCapability(
-        directories=[str(AUDITOR_SKILL_DIR), str(EDITOR_SKILL_DIR), str(WRITER_SKILL_DIR)]
+        directories=[str(AUDITOR_SKILL_DIR), str(EDITOR_SKILL_DIR), str(WRITER_SKILL_DIR)],
+        exclude_tools=_EXCLUDE_SKILL_SCRIPTS,
     )
 
 

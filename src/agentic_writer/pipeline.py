@@ -17,6 +17,7 @@ from agentic_writer.editorial_io import (
     build_architect_prompt,
     build_auditor_prompt,
     build_chapter_prompt,
+    build_prologue_prompt,
     normalize_blueprint_chapters,
     save_chapter_artifacts,
 )
@@ -98,21 +99,23 @@ async def _write_chapters(
     prologue_text: str | None = None
     plan = chapter_plan_for(brief.format)
 
+    total = len(blueprint.chapters)
+
     if plan.include_prologue and blueprint.prologue_beat:
-        prologue_prompt = (
-            f"Rédige le prologue choc (200–400 mots), 1re personne, présent.\n"
-            f"Langue : {brief.lang}\n"
-            f"Beat : {blueprint.prologue_beat}\n"
-            f"TWIST FINAL (ne pas révéler trop tôt) : {blueprint.twist_sheet.twist_final}\n"
-        )
-        prologue_text = (await chapter_agent.run(prologue_prompt)).output.content
+        prologue_text = (
+            await chapter_agent.run(build_prologue_prompt(brief, blueprint))
+        ).output.content
         previous = prologue_text
 
     for chapter in blueprint.chapters:
         if rewrite_indices is not None and chapter.index not in rewrite_indices:
             continue
         prompt = build_chapter_prompt(
-            brief, blueprint, chapter, previous_excerpt=previous
+            brief,
+            blueprint,
+            chapter,
+            previous_excerpt=previous,
+            total_chapters=total,
         )
         content = (await chapter_agent.run(prompt)).output.content
         draft = ChapterDraft.from_outline(chapter, content)
@@ -230,7 +233,7 @@ async def run_pipeline(
 
     async def _editor() -> None:
         edited_holder["out"] = (
-            await editor_agent.run(build_edit_prompt(written_holder["out"]))
+            await editor_agent.run(build_edit_prompt(written_holder["out"], brief))
         ).output
 
     await _run_step(
@@ -284,7 +287,7 @@ async def run_pipeline(
                 manuscript=manuscript,
             )
             edited_holder["out"] = (
-                await editor_agent.run(build_edit_prompt(written_holder["out"]))
+                await editor_agent.run(build_edit_prompt(written_holder["out"], brief))
             ).output
 
     await _run_step(

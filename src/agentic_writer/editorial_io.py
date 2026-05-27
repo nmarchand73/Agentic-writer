@@ -10,25 +10,56 @@ from agentic_writer.editorial_models import (
     ChapterOutline,
     StoryBlueprint,
 )
-from agentic_writer.editorial_plan import FormatChapterPlan, chapter_plan_for
+from agentic_writer.editorial_plan import FormatChapterPlan
 from agentic_writer.models import Brief, TwistSheet
+
+_CHECKLIST_KEYS = (
+    "voice, twists_intact, foreshadowing, chapter_hooks, "
+    "pitch_booktok, format_length, continuity"
+)
 
 
 def build_architect_prompt(brief: Brief, plan: FormatChapterPlan) -> str:
-    prologue = "avec prologue_beat (200–400 mots prévus)" if plan.include_prologue else "sans prologue"
+    prologue_line = (
+        f"Prologue : oui — remplir `prologue_beat` (scène choc 200–400 mots, sans rédiger le texte)."
+        if plan.include_prologue
+        else "Prologue : non — laisser `prologue_beat` vide ou null."
+    )
     return (
-        f"Conçois le plan complet d'une histoire de suspense psychologique domestique.\n"
-        f"Titre : {brief.resolved_title()}\n"
-        f"Slug : {brief.slug}\n"
-        f"Format : {brief.format}\n"
-        f"Langue : {brief.lang}\n"
-        f"Pitch : {brief.pitch}\n"
-        f"Chapitres narratifs : exactement {plan.chapter_count} entrées dans chapters "
-        f"(index 1..{plan.chapter_count}), ~{plan.words_per_chapter} mots cible chacun.\n"
-        f"Prologue : {prologue}.\n"
-        f"Longueur totale visée : {plan.min_total_words}–{plan.max_total_words} mots.\n\n"
-        "Retourne un ArchitectResult : twist_sheet complet + chapters avec title, beat, hook, "
-        "target_words."
+        f"## Brief\n"
+        f"- Titre : {brief.resolved_title()}\n"
+        f"- Slug : {brief.slug}\n"
+        f"- Format : {brief.format}\n"
+        f"- Langue : {brief.lang}\n"
+        f"- Pitch : {brief.pitch}\n\n"
+        f"## Contraintes plan\n"
+        f"- Chapitres narratifs : **exactement {plan.chapter_count}** entrées dans `chapters` "
+        f"(index 1…{plan.chapter_count}).\n"
+        f"- ~{plan.words_per_chapter} mots cible par chapitre (`target_words`).\n"
+        f"- Longueur totale visée : {plan.min_total_words}–{plan.max_total_words} mots.\n"
+        f"- {prologue_line}\n\n"
+        "## Livrable\n"
+        "Retourne un `ArchitectResult` :\n"
+        "- `blueprint.title` aligné sur le titre ci-dessus.\n"
+        "- `blueprint.twist_sheet` complet (tous les champs Pydantic).\n"
+        "- `blueprint.chapters[]` : title, beat, hook, target_words pour chaque index.\n"
+        "- Mid-twist narratif ~50–60 % de l'arc ; indices de foreshadowing en première moitié.\n"
+        "Pas de prose de roman — plan uniquement."
+    )
+
+
+def build_prologue_prompt(brief: Brief, blueprint: StoryBlueprint) -> str:
+    twist = blueprint.twist_sheet
+    return (
+        f"## Prologue choc\n"
+        f"- Langue : {brief.lang}\n"
+        f"- Cible : 200–400 mots dans `content`.\n"
+        f"- Beat : {blueprint.prologue_beat}\n\n"
+        "## Twists (figés — ne pas tout révéler)\n"
+        f"- Twist final (à ménager) : {twist.twist_final}\n"
+        f"- Mensonge / omission : {twist.mensonge_omission}\n\n"
+        "Accroche immédiate, voix 1re personne présent, terminer sur une tension ou question.\n"
+        "Corps markdown dans `content` (pas de titre `#` du livre)."
     )
 
 
@@ -38,23 +69,27 @@ def build_chapter_prompt(
     chapter: ChapterOutline,
     *,
     previous_excerpt: str | None,
+    total_chapters: int,
 ) -> str:
     twist = blueprint.twist_sheet
-    prev = (
-        f"\nFin du chapitre précédent (continuité) :\n{previous_excerpt[-800:]}\n"
-        if previous_excerpt
-        else ""
-    )
+    prev = ""
+    if previous_excerpt:
+        prev = (
+            "\n## Continuité (fin du bloc précédent)\n"
+            f"{previous_excerpt[-800:]}\n"
+        )
     return (
-        f"Rédige le chapitre {chapter.index} : « {chapter.title} ».\n"
-        f"Langue : {brief.lang}. Cible : ~{chapter.target_words} mots.\n"
-        f"Beat : {chapter.beat}\n"
-        f"Hook de fin : {chapter.hook}\n"
+        f"## Chapitre {chapter.index} / {total_chapters} : « {chapter.title} »\n"
+        f"- Langue : {brief.lang}\n"
+        f"- Cible : ~{chapter.target_words} mots (±15 %)\n"
+        f"- Beat : {chapter.beat}\n"
+        f"- Hook de fin (obligatoire) : {chapter.hook}\n"
         f"{prev}\n"
-        f"TWIST FINAL (figé) : {twist.twist_final}\n"
-        f"MID-TWIST (figé) : {twist.mid_twist}\n"
-        f"CODA (figée) : {twist.coda_bombe}\n\n"
-        "Corps en markdown (## optionnel). Pas de récap des autres chapitres."
+        "## Twists figés (cohérence — ne pas contredire)\n"
+        f"- Twist final : {twist.twist_final}\n"
+        f"- Mid-twist : {twist.mid_twist}\n"
+        f"- Coda : {twist.coda_bombe}\n\n"
+        "Rédige **ce chapitre seul** dans `content` (markdown, pas de récap des autres chapitres)."
     )
 
 
@@ -64,13 +99,24 @@ def build_auditor_prompt(
     manuscript: str,
     guard_issues: list[str],
 ) -> str:
-    guards = "\n".join(f"- {g}" for g in guard_issues) or "(aucun)"
+    guards = "\n".join(f"- {g}" for g in guard_issues) or "- (aucune alerte programmatique)"
     return (
-        f"Audite ce manuscrit format {brief.format} / {brief.lang}.\n"
-        f"Problèmes détectés programmatiquement :\n{guards}\n\n"
-        f"TWIST FINAL : {twist.twist_final}\n"
-        f"MID-TWIST : {twist.mid_twist}\n"
-        f"CODA : {twist.coda_bombe}\n\n"
+        f"## Contexte\n"
+        f"- Format : {brief.format}\n"
+        f"- Langue : {brief.lang}\n"
+        f"- Titre : {brief.resolved_title()}\n\n"
+        f"## Alertes programmatiques (à intégrer dans ton verdict)\n"
+        f"{guards}\n\n"
+        "## Twists de référence (figés)\n"
+        f"- Twist final : {twist.twist_final}\n"
+        f"- Mid-twist : {twist.mid_twist}\n"
+        f"- Coda : {twist.coda_bombe}\n"
+        f"- Pitch BookTok : {twist.pitch_booktok}\n\n"
+        "## Livrable\n"
+        "Retourne un `AuditorVerdict` :\n"
+        f"- `checklist_scores` avec clés : {_CHECKLIST_KEYS}\n"
+        "- `passed=true` si `overall_score` ≥ 70 et aucun critère à 0.\n"
+        "- `chapters_to_rewrite` : [] ou 1–2 index de chapitres faibles seulement.\n\n"
         f"--- MANUSCRIT ---\n{manuscript}\n"
     )
 

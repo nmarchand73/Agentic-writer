@@ -25,9 +25,11 @@ def test_build_edit_prompt_includes_twist(tmp_path, monkeypatch):
         "agentic_writer.io.output_dir",
         lambda slug: tmp_path / slug,
     )
+    brief = Brief(slug="art", pitch="p", format="flash", lang="fr")
     written = _writer()
-    prompt = build_edit_prompt(written)
+    prompt = build_edit_prompt(written, brief)
     assert "TWIST_FINAL_X" in prompt
+    assert "flash" in prompt
     assert "# Draft" in prompt
 
 

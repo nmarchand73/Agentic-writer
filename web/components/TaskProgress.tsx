@@ -12,9 +12,11 @@ export function TaskProgress({ steps }: { steps: PipelineStepState[] }) {
 
   const completedCount = steps.filter((s) => s.status === "completed").length;
   const progressPct = Math.round((completedCount / steps.length) * 100);
-  const currentIndex = steps.findIndex(
-    (s) => s.status === "running" || s.status === "pending",
-  );
+  const runningIndex = steps.findIndex((s) => s.status === "running");
+  const currentIndex =
+    runningIndex >= 0
+      ? runningIndex
+      : steps.findIndex((s) => s.status === "pending");
   const allDone = completedCount === steps.length;
 
   return (

@@ -23,6 +23,7 @@ import {
   LoadingManuscript,
 } from "./StudioStatusCards";
 import { TaskProgress } from "./TaskProgress";
+import { UsageCostBar } from "./UsageCostBar";
 import type { StudioAgentState } from "./types";
 
 const AGENT_ID = "agentic_writer_studio";
@@ -121,6 +122,8 @@ function ChatInner({ threadId, onSelectThread, onNewThread }: ChatInnerProps) {
           </section>
 
           {steps && steps.length > 0 && <TaskProgress steps={steps} />}
+
+          <UsageCostBar state={agentState} />
 
           {agentState.error && <ErrorBanner message={agentState.error} />}
 

@@ -382,6 +382,8 @@ uv run pytest -m e2e                                        # live API, format f
 cd web && npm run build                                     # optional
 ```
 
+Logs pipeline (loguru) et stdlib s’affichent pendant les tests (`-s` dans `pyproject.toml`). Plus verbeux : `TEST_LOG_LEVEL=DEBUG uv run pytest …`.
+
 Details: [`specs/bdd/README.md`](specs/bdd/README.md).
 
 ---

@@ -60,19 +60,55 @@ function diskMessages(data: StoredThread): Message[] {
   return data.historicRuns[data.historicRuns.length - 1].messages;
 }
 
+type JsonPatchOp = { op: string; path: string; value?: unknown };
+
+function applyStateDelta(
+  state: Record<string, unknown>,
+  rawDelta: unknown,
+): Record<string, unknown> {
+  const ops: JsonPatchOp[] = Array.isArray(rawDelta)
+    ? (rawDelta as JsonPatchOp[])
+    : [rawDelta as JsonPatchOp];
+  const next: Record<string, unknown> = { ...state };
+  const steps = Array.isArray(state.steps)
+    ? (state.steps as Record<string, unknown>[]).map((s) => ({ ...s }))
+    : null;
+
+  for (const op of ops) {
+    if (op.op !== "replace" || typeof op.path !== "string") continue;
+    const stepMatch = /^\/steps\/(\d+)\/status$/.exec(op.path);
+    if (stepMatch && steps) {
+      const i = Number(stepMatch[1]);
+      if (steps[i]) steps[i] = { ...steps[i], status: op.value };
+      continue;
+    }
+    const key = op.path.replace(/^\//, "");
+    if (key && !key.includes("/")) {
+      next[key] = op.value;
+    }
+  }
+  if (steps) next.steps = steps;
+  return next;
+}
+
 function diskState(data: StoredThread): Record<string, unknown> | null {
   const events = diskEvents(data);
-  for (let i = events.length - 1; i >= 0; i--) {
-    const event = events[i];
+  let state: Record<string, unknown> | null = null;
+  for (const event of events) {
     if (event.type === EventType.STATE_SNAPSHOT) {
       const snapshot = event.snapshot;
       if (snapshot && typeof snapshot === "object") {
-        return snapshot as Record<string, unknown>;
+        state = snapshot as Record<string, unknown>;
       }
-      return null;
+    } else if (
+      event.type === EventType.STATE_DELTA &&
+      state &&
+      "delta" in event
+    ) {
+      state = applyStateDelta(state, (event as { delta: unknown }).delta);
     }
   }
-  return null;
+  return state;
 }
 
 export class StudioAgentRunner extends InMemoryAgentRunner {

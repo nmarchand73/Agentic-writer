@@ -61,6 +61,8 @@ filterwarnings = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
+# -s : stderr visible (loguru pipeline / coûts) ; log_cli : logging stdlib (uvicorn, httpx…)
+addopts = "-s --log-cli-level=INFO"
 
 [tool.pytest-bdd]
 features_base_dir = "specs/bdd"

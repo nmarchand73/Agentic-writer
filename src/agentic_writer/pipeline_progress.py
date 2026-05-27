@@ -34,6 +34,8 @@ def log_step_skipped(index: int, total: int, label: str, reason: str) -> None:
     log.warning("[{}/{}] ⊘  {} ({})", index + 1, total, label, reason)
 
 
-def log_pipeline_complete(output_dir: str) -> None:
+def log_pipeline_complete(output_dir: str, *, usage_summary: str | None = None) -> None:
     log.info("── Pipeline terminé ──")
+    if usage_summary:
+        log.info("Usage LLM — {}", usage_summary)
     log.success("Sortie → {}", output_dir)

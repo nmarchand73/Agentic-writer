@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from agentic_writer.cleanup import cleanup_work_dir
 from agentic_writer.editorial_guards import (
@@ -36,7 +36,9 @@ from agentic_writer.pipeline_progress import (
     log_step_done,
     log_step_start,
 )
+from agentic_writer.pipeline_agents import run_agent_tracked
 from agentic_writer.pipeline_steps import pipeline_step_labels
+from agentic_writer.usage_cost import UsageLedger
 
 if TYPE_CHECKING:
     from pydantic_ai import Agent
@@ -47,6 +49,7 @@ if TYPE_CHECKING:
 log = get_logger("pipeline")
 
 StepHook = Callable[[int, str], Awaitable[None] | None]
+UsageHook = Callable[[UsageLedger], Awaitable[None] | None]
 DoneDetail = Union[str, Callable[[], str | None], None]
 
 IDX_BRIEF = 0
@@ -90,6 +93,9 @@ async def _write_chapters(
     blueprint: StoryBlueprint,
     chapter_agent: Agent[None, ChapterWriterResult],
     *,
+    ledger: UsageLedger,
+    chapter_model: str,
+    on_usage: UsageHook | None = None,
     rewrite_indices: set[int] | None = None,
 ) -> tuple[list[ChapterDraft], str | None]:
     from agentic_writer.agents.chapter_writer import ChapterWriterResult
@@ -102,9 +108,15 @@ async def _write_chapters(
     total = len(blueprint.chapters)
 
     if plan.include_prologue and blueprint.prologue_beat:
-        prologue_text = (
-            await chapter_agent.run(build_prologue_prompt(brief, blueprint))
-        ).output.content
+        prologue_result = await run_agent_tracked(
+            chapter_agent,
+            build_prologue_prompt(brief, blueprint),
+            ledger=ledger,
+            label="prologue",
+            model=chapter_model,
+            on_usage=on_usage,
+        )
+        prologue_text = prologue_result.output.content
         previous = prologue_text
 
     for chapter in blueprint.chapters:
@@ -117,7 +129,15 @@ async def _write_chapters(
             previous_excerpt=previous,
             total_chapters=total,
         )
-        content = (await chapter_agent.run(prompt)).output.content
+        chapter_result = await run_agent_tracked(
+            chapter_agent,
+            prompt,
+            ledger=ledger,
+            label=f"chapitre {chapter.index}",
+            model=chapter_model,
+            on_usage=on_usage,
+        )
+        content = chapter_result.output.content
         draft = ChapterDraft.from_outline(chapter, content)
         drafts_by_index[chapter.index] = draft
         previous = content
@@ -136,6 +156,7 @@ async def run_pipeline(
     auditor: Agent[None, AuditorVerdict] | None = None,
     on_step_start: StepHook | None = None,
     on_step_complete: StepHook | None = None,
+    on_usage: UsageHook | None = None,
 ) -> PipelineResult:
     from agentic_writer.agents import create_editor_agent
     from agentic_writer.agents.architect import create_architect_agent
@@ -160,6 +181,9 @@ async def run_pipeline(
     chapter_agent = chapter_writer or create_chapter_writer_agent()
     editor_agent = editor or create_editor_agent()
     auditor_agent = auditor or create_auditor_agent()
+
+    ledger = UsageLedger()
+    chapter_model = settings.get("model_chapter") or settings["model_writer"]
 
     plan = chapter_plan_for(brief.format)
     blueprint_holder: dict[str, StoryBlueprint] = {}
@@ -189,8 +213,17 @@ async def run_pipeline(
     )
 
     async def _architect() -> None:
-        raw = (await architect_agent.run(build_architect_prompt(brief, plan))).output
-        blueprint_holder["bp"] = normalize_blueprint_chapters(raw.blueprint, plan)
+        arch_result = await run_agent_tracked(
+            architect_agent,
+            build_architect_prompt(brief, plan),
+            ledger=ledger,
+            label="architecte",
+            model=settings["model_architect"],
+            on_usage=on_usage,
+        )
+        blueprint_holder["bp"] = normalize_blueprint_chapters(
+            arch_result.output.blueprint, plan
+        )
 
     await _run_step(
         IDX_ARCHITECT,
@@ -199,12 +232,21 @@ async def run_pipeline(
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_architect,
-        done_detail=f"{plan.chapter_count} chapitres planifiés",
+        done_detail=lambda: (
+            f"{plan.chapter_count} chapitres planifiés · {ledger.summary()}"
+        ),
     )
     blueprint = blueprint_holder["bp"]
 
     async def _chapters() -> None:
-        drafts, prologue = await _write_chapters(brief, blueprint, chapter_agent)
+        drafts, prologue = await _write_chapters(
+            brief,
+            blueprint,
+            chapter_agent,
+            ledger=ledger,
+            chapter_model=chapter_model,
+            on_usage=on_usage,
+        )
         drafts_holder["drafts"] = drafts
         prologue_holder["text"] = prologue
 
@@ -215,7 +257,9 @@ async def run_pipeline(
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_chapters,
-        done_detail=lambda: f"{len(drafts_holder['drafts'])} chapitres rédigés",
+        done_detail=lambda: (
+            f"{len(drafts_holder['drafts'])} chapitres rédigés · {ledger.summary()}"
+        ),
     )
 
     def _manuscript() -> str:
@@ -232,9 +276,15 @@ async def run_pipeline(
     )
 
     async def _editor() -> None:
-        edited_holder["out"] = (
-            await editor_agent.run(build_edit_prompt(written_holder["out"], brief))
-        ).output
+        edit_result = await run_agent_tracked(
+            editor_agent,
+            build_edit_prompt(written_holder["out"], brief),
+            ledger=ledger,
+            label="éditeur",
+            model=settings["model_editor"],
+            on_usage=on_usage,
+        )
+        edited_holder["out"] = edit_result.output
 
     await _run_step(
         IDX_EDITOR,
@@ -243,6 +293,7 @@ async def run_pipeline(
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_editor,
+        done_detail=lambda: ledger.summary(),
     )
 
     async def _audit_loop() -> None:
@@ -253,16 +304,20 @@ async def run_pipeline(
                 check_twist_sheet(blueprint.twist_sheet),
                 check_manuscript_length(brief, corrected),
             )
-            verdict = (
-                await auditor_agent.run(
-                    build_auditor_prompt(
-                        brief,
-                        blueprint.twist_sheet,
-                        corrected,
-                        guards,
-                    )
-                )
-            ).output
+            audit_result = await run_agent_tracked(
+                auditor_agent,
+                build_auditor_prompt(
+                    brief,
+                    blueprint.twist_sheet,
+                    corrected,
+                    guards,
+                ),
+                ledger=ledger,
+                label=f"auditeur (tour {retries + 1})",
+                model=settings["model_auditor"],
+                on_usage=on_usage,
+            )
+            verdict = audit_result.output
             audit_holder["v"] = verdict
 
             rewrite = set(verdict.chapters_to_rewrite)
@@ -275,6 +330,9 @@ async def run_pipeline(
                 brief,
                 blueprint,
                 chapter_agent,
+                ledger=ledger,
+                chapter_model=chapter_model,
+                on_usage=on_usage,
                 rewrite_indices=rewrite,
             )
             by_idx = {d.index: d for d in drafts_holder["drafts"]}
@@ -286,9 +344,15 @@ async def run_pipeline(
                 twist_sheet=blueprint.twist_sheet,
                 manuscript=manuscript,
             )
-            edited_holder["out"] = (
-                await editor_agent.run(build_edit_prompt(written_holder["out"], brief))
-            ).output
+            edit_result = await run_agent_tracked(
+                editor_agent,
+                build_edit_prompt(written_holder["out"], brief),
+                ledger=ledger,
+                label="éditeur (post-réécriture)",
+                model=settings["model_editor"],
+                on_usage=on_usage,
+            )
+            edited_holder["out"] = edit_result.output
 
     await _run_step(
         IDX_AUDITOR,
@@ -298,11 +362,14 @@ async def run_pipeline(
         on_step_complete=on_step_complete,
         work=_audit_loop,
         done_detail=lambda: (
-            "OK"
-            if audit_holder.get("v") and audit_holder["v"].passed
-            else f"score {audit_holder['v'].overall_score}"
+            (
+                "OK"
+                if audit_holder.get("v") and audit_holder["v"].passed
+                else f"score {audit_holder['v'].overall_score}"
+            )
+            + f" · {ledger.summary()}"
             if audit_holder.get("v")
-            else None
+            else ledger.summary()
         ),
     )
 
@@ -355,7 +422,8 @@ async def run_pipeline(
         done_detail=str(work),
     )
 
-    log_pipeline_complete(str(work))
+    usage_summary = ledger.summary()
+    log_pipeline_complete(str(work), usage_summary=usage_summary)
     return PipelineResult(
         brief=brief,
         written=written_holder["out"],
@@ -363,4 +431,5 @@ async def run_pipeline(
         output_dir=str(work),
         blueprint=blueprint,
         audit=audit_holder.get("v"),
+        usage_summary=usage_summary,
     )

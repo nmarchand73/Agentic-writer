@@ -36,7 +36,7 @@ Les livrables utiles (`manuscript_final.md`, docx, pdf) ne sont **pas** effacés
 ## CI
 
 ```bash
-uv run pytest -m "bootstrap or unit or integration or ui"
+uv run pytest -m "bootstrap or unit or integration or ui"   # logs visibles (loguru + -s)
 uv run pytest tests/bdd/test_studio_threads.py -m ui   # Node/npx requis
 uv run pytest -m e2e                                   # OPENAI_API_KEY + réseau
 ```

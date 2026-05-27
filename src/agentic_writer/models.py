@@ -85,3 +85,4 @@ class PipelineResult(BaseModel):
     output_dir: str
     blueprint: object | None = None  # StoryBlueprint when editorial v2
     audit: object | None = None  # AuditorVerdict when editorial v2
+    usage_summary: str | None = None

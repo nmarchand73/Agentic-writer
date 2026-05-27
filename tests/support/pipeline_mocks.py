@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from agentic_writer.agents.chapter_writer import ChapterWriterResult
@@ -14,6 +14,7 @@ from agentic_writer.editorial_models import (
     StoryBlueprint,
 )
 from agentic_writer.models import EditorResult, TwistSheet, WriterResult
+from pydantic_ai.usage import RunUsage
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -21,6 +22,9 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 @dataclass
 class MockRunResult:
     output: object
+    usage: RunUsage = field(
+        default_factory=lambda: RunUsage(input_tokens=100, output_tokens=50, requests=1)
+    )
 
 
 class MockAgent:

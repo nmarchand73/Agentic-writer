@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 
 import pytest
+
+from agentic_writer.log_config import setup_logging
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -40,6 +43,13 @@ def writer_flash_data() -> dict:
 @pytest.fixture
 def editor_flash_data() -> dict:
     return json.loads((FIXTURES / "editor_flash.json").read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _configure_test_logging() -> None:
+    """Loguru sur stderr (voir pyproject addopts -s) pour toute la session pytest."""
+    level = os.environ.get("TEST_LOG_LEVEL") or os.environ.get("LOG_LEVEL", "INFO")
+    setup_logging(level=level)
 
 
 @pytest.fixture(scope="session", autouse=True)

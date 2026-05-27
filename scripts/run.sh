@@ -110,5 +110,5 @@ echo ""
 echo "Press Ctrl+C to stop both servers."
 echo ""
 
-wait -n
-exit $?
+# wait -n needs bash 4.3+; macOS ships bash 3.2
+wait

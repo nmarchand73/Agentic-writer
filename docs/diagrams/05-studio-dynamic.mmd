@@ -1,0 +1,28 @@
+C4Dynamic
+  title Studio - generate story dynamic
+
+  Person(author, "Author")
+  Container(studio_web, "Studio Web", "Next.js", "StudioChat TaskProgress")
+  ContainerDb(artifacts, "Artifacts store", "filesystem", "output per slug")
+
+  Container_Boundary(api, "Studio API") {
+    Component(ck_route, "CopilotKit route", "Hono", "copilotkit HttpAgent")
+    Component(agui, "AG-UI adapter", "FastAPI", "POST agui")
+    Component(tools, "Studio tools", "Pydantic AI", "plan and run_story_generation")
+    Component(rest, "REST", "FastAPI", "manuscript pdf")
+  }
+
+  Container(pipeline, "Story Pipeline", "Python", "run_pipeline")
+
+  Rel(author, studio_web, "1 Sends chat")
+  Rel(studio_web, ck_route, "2 POST agent run")
+  Rel(ck_route, agui, "3 AG-UI SSE")
+  Rel(agui, tools, "4 create_pipeline_plan")
+  Rel(tools, agui, "5 STATE_SNAPSHOT")
+  Rel(agui, tools, "6 run_story_generation")
+  Rel(tools, pipeline, "7 Async pipeline")
+  Rel(pipeline, artifacts, "8 Writes artefacts")
+  Rel(tools, agui, "9 STATE_DELTA progress")
+  Rel(agui, ck_route, "10 SSE to client")
+  Rel(studio_web, rest, "11 GET manuscript pdf")
+  Rel(rest, artifacts, "12 Reads files")

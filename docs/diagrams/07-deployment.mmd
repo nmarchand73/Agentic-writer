@@ -1,0 +1,28 @@
+C4Deployment
+  title Agentic Writer - deployment
+
+  Deployment_Node(local, "Developer machine", "macOS or Linux") {
+    Container(cli_local, "CLI", "uv", "agentic-writer generate")
+    Container(web_local, "Studio Web", "Next.js dev", "localhost 3000")
+    Container(api_local, "Studio API", "uvicorn", "localhost 8000")
+    ContainerDb(disk_local, "Local disk", "filesystem", "output and studio-threads")
+  }
+
+  Deployment_Node(github, "GitHub") {
+    Container(pages, "Project site", "GitHub Pages", "docs static landing")
+  }
+
+  Deployment_Node(cloud, "Cloud optional", "Vercel Render Fly") {
+    Container(web_cloud, "Studio Web", "Node container", "CopilotKit API routes")
+    Container(api_cloud, "Studio API", "Python container", "FastAPI and pipeline")
+    ContainerDb(disk_cloud, "Persistent volume", "filesystem", "artefacts and threads")
+  }
+
+  System_Ext(openai, "OpenAI", "API")
+
+  Rel(api_local, openai, "HTTPS")
+  Rel(api_cloud, openai, "HTTPS")
+  Rel(web_local, api_local, "HTTP")
+  Rel(web_cloud, api_cloud, "HTTPS")
+  Rel(api_local, disk_local, "read and write")
+  Rel(api_cloud, disk_cloud, "read and write")

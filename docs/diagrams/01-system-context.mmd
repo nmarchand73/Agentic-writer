@@ -1,0 +1,13 @@
+C4Context
+  title Agentic Writer - system context
+
+  Person(author, "Author", "Generates fiction via CLI or Studio")
+  System(aw, "Agentic Writer", "Writer to Editor pipeline, docx and pdf export, optional Studio UI")
+  System_Ext(openai, "OpenAI", "LLM for writer and editor agents")
+  SystemDb_Ext(pages, "GitHub Pages", "Static project landing in docs")
+  SystemDb(output, "Output store", "Manuscripts and exports per slug")
+
+  Rel(author, aw, "Runs generate and Studio chat")
+  Rel(aw, openai, "Calls", "HTTPS API")
+  Rel(aw, output, "Reads and writes artefacts")
+  Rel(author, pages, "Reads overview", "HTTPS")

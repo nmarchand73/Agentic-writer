@@ -1,0 +1,26 @@
+C4Component
+  title Story pipeline - components
+
+  Container(cli, "CLI", "Typer", "Headless entry")
+  Container(studio_agent, "Studio agent", "Pydantic AI", "Studio entry via tools")
+  System_Ext(openai, "OpenAI", "LLM")
+  ContainerDb(artifacts, "Artifacts store", "filesystem", "Per-slug folder")
+
+  Container_Boundary(pipe, "Story Pipeline") {
+    Component(orchestrator, "Pipeline orchestrator", "pipeline.py", "run_pipeline step hooks")
+    Component(writer, "Writer agent", "Pydantic AI", "story-writer skill")
+    Component(editor, "Editor agent", "Pydantic AI", "manuscript-editor skill")
+    Component(io, "Artifacts IO", "io.py", "Save twist draft review final md")
+    Component(export, "Print export", "docx_build", "print-layout docx and pdf")
+  }
+
+  Rel(cli, orchestrator, "generate command")
+  Rel(studio_agent, orchestrator, "run_story_generation tool")
+  Rel(orchestrator, writer, "Step 1")
+  Rel(writer, editor, "Step 2")
+  Rel(editor, io, "Step 3")
+  Rel(io, export, "Step 4 optional")
+  Rel(writer, openai, "LLM")
+  Rel(editor, openai, "LLM")
+  Rel(io, artifacts, "Writes")
+  Rel(export, artifacts, "Writes docx and pdf")

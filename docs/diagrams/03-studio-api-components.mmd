@@ -1,0 +1,19 @@
+C4Component
+  title Studio API - components
+
+  Container(studio_web, "Studio Web", "Next.js", "Browser and CopilotKit client")
+  ContainerDb(artifacts, "Artifacts store", "filesystem", "output per slug")
+
+  Container_Boundary(api, "Studio API") {
+    Component(agui_ep, "AG-UI endpoint", "FastAPI", "POST agui AGUIAdapter stream")
+    Component(studio_agent, "Studio agent", "Pydantic AI", "create_pipeline_plan run_story_generation")
+    Component(progress, "Progress bridge", "Python", "STATE_DELTA during tools")
+    Component(rest, "REST handlers", "FastAPI", "health manuscript pdf")
+  }
+
+  Rel(studio_web, agui_ep, "HttpAgent SSE")
+  Rel(agui_ep, studio_agent, "Runs agent")
+  Rel(agui_ep, progress, "Merged stream")
+  Rel(studio_agent, progress, "Emits snapshots and deltas")
+  Rel(studio_web, rest, "Fetches manuscript and pdf")
+  Rel(rest, artifacts, "Reads files")

@@ -1,0 +1,20 @@
+C4Dynamic
+  title Story pipeline - steps dynamic
+
+  Container_Boundary(pipe, "Story Pipeline") {
+    Component(orchestrator, "Orchestrator", "Python", "run_pipeline")
+    Component(brief, "Brief", "models.Brief", "slug pitch format lang")
+    Component(writer, "Writer", "Pydantic AI", "twist_sheet and draft")
+    Component(editor, "Editor", "Pydantic AI", "review and final md")
+    Component(io, "Artifacts IO", "io.py", "persist markdown")
+    Component(export, "Print export", "docx_build", "docx and pdf")
+  }
+  ContainerDb(artifacts, "Artifacts store", "filesystem", "output per slug")
+
+  Rel(orchestrator, brief, "1 Validate brief")
+  Rel(brief, writer, "2 Writer agent")
+  Rel(writer, editor, "3 Editor agent")
+  Rel(editor, io, "4 Save artefacts")
+  Rel(io, export, "5 Print layout optional")
+  Rel(export, artifacts, "6 Deliver docx and pdf")
+  Rel(io, artifacts, "Writes md and json")

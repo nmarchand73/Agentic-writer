@@ -20,6 +20,7 @@ def save_thread_fixture(
     user_message: str,
     *,
     name: str | None = None,
+    events: list[dict[str, Any]] | None = None,
 ) -> Path:
     threads_dir.mkdir(parents=True, exist_ok=True)
     title = name if name is not None else _display_title(user_message)
@@ -32,7 +33,7 @@ def save_thread_fixture(
                 "runId": "bdd",
                 "agentId": "agentic_writer_studio",
                 "parentRunId": None,
-                "events": [],
+                "events": events if events is not None else [],
                 "messages": [
                     {"id": "bdd-user-1", "role": "user", "content": user_message},
                 ],

@@ -8,21 +8,18 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from agentic_writer.models import Brief, EditorResult, WriterResult
 from agentic_writer.pipeline import run_pipeline
+from tests.support.pipeline_mocks import (
+    MockAgent,
+    blueprint_from_writer_fixture,
+    editorial_mock_agents,
+    writer_result_from_fixture,
+)
+from agentic_writer.editorial_models import ArchitectResult
+from agentic_writer.agents.chapter_writer import ChapterWriterResult
 
 scenarios("../../specs/bdd/03_pipeline_text.feature")
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
-
-
-class MockAgent:
-    def __init__(self, output, capture=False):
-        self._output = output
-        self.calls = []
-        self.capture = capture
-
-    async def run(self, prompt: str):
-        self.calls.append(prompt)
-        return type("R", (), {"output": self._output})()
 
 
 @pytest.fixture
@@ -30,10 +27,18 @@ def context():
     return {}
 
 
-@given(parsers.parse("un Writer simulé retournant {fixture}"))
-def mock_writer(context, fixture):
-    data = json.loads((FIXTURES / fixture).read_text())
-    context["writer"] = MockAgent(WriterResult.model_validate(data))
+@given(parsers.parse("un Architecte simulé retournant {fixture}"))
+def mock_architect(context, fixture):
+    context["architect"] = MockAgent(
+        ArchitectResult(blueprint=blueprint_from_writer_fixture(fixture))
+    )
+
+
+@given("un Writer chapitre simulé avec un corps long")
+def mock_chapter_writer(context):
+    context["chapter_writer"] = MockAgent(
+        ChapterWriterResult(content=" ".join(["mot"] * 700))
+    )
 
 
 @given(parsers.parse("un Editor simulé retournant {fixture}"))
@@ -45,7 +50,7 @@ def mock_editor(context, fixture):
 @given("un Editor simulé capturant le prompt")
 def mock_editor_capture(context):
     data = json.loads((FIXTURES / "editor_flash.json").read_text())
-    context["editor"] = MockAgent(EditorResult.model_validate(data), capture=True)
+    context["editor"] = MockAgent(EditorResult.model_validate(data))
 
 
 @given(parsers.parse('un brief format "{fmt}" slug "{slug}"'))
@@ -55,15 +60,18 @@ def set_brief(context, fmt, slug):
 
 @given("des agents simulés")
 def both_mocks(context):
-    w = json.loads((FIXTURES / "writer_flash.json").read_text())
-    e = json.loads((FIXTURES / "editor_flash.json").read_text())
-    context["writer"] = MockAgent(WriterResult.model_validate(w))
-    context["editor"] = MockAgent(EditorResult.model_validate(e))
+    mocks = editorial_mock_agents()
+    context.update(mocks)
+
+
+@given("un Auditeur simulé avec succès")
+def mock_auditor_ok(context):
+    context["auditor"] = editorial_mock_agents()["auditor"]
 
 
 @given(parsers.parse('le slug "{slug}"'))
 def slug_only(context, slug):
-    context["brief"] = Brief(slug=slug, pitch="p")
+    context["brief"] = Brief(slug=slug, pitch="p", format="flash")
 
 
 @when("j'exécute le pipeline sans export imprimable")
@@ -79,8 +87,10 @@ def run_pipe(context, tmp_path, monkeypatch):
         return await run_pipeline(
             context["brief"],
             md_only=True,
-            writer=context.get("writer"),
+            architect=context.get("architect"),
+            chapter_writer=context.get("chapter_writer"),
             editor=context.get("editor"),
+            auditor=context.get("auditor"),
         )
 
     context["result"] = asyncio.run(_run())
@@ -97,10 +107,11 @@ def assert_editor(context):
     assert isinstance(context["result"].edited, EditorResult)
 
 
-@then("l'Editor est appelé une fois après le Writer")
+@then("l'Editor est appelé après l'Architecte et les chapitres")
 def assert_order(context):
-    assert len(context["writer"].calls) == 1
-    assert len(context["editor"].calls) == 1
+    assert len(context["architect"].calls) == 1
+    assert len(context["chapter_writer"].calls) >= 1
+    assert len(context["editor"].calls) >= 1
 
 
 @then("le prompt de relecture contient le twist_final du fixture")
@@ -118,5 +129,5 @@ def file_exists(context, name):
 @then("twist_sheet.json contient le twist_final du fixture")
 def twist_sheet_has_twist(context):
     data = json.loads((context["work"] / "twist_sheet.json").read_text(encoding="utf-8"))
-    expected = json.loads((FIXTURES / "writer_flash.json").read_text(encoding="utf-8"))
-    assert data["twist_final"] == expected["twist_sheet"]["twist_final"]
+    expected = writer_result_from_fixture().twist_sheet
+    assert data["twist_final"] == expected.twist_final

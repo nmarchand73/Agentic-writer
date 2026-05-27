@@ -11,6 +11,11 @@ import typer
 from agentic_writer.brief_io import load_brief
 from agentic_writer.config import load_settings
 from agentic_writer.doctor import doctor_exit_code, run_doctor
+from agentic_writer.format_specs import (
+    FORMAT_OPTION_HELP,
+    FORMATS_HELP_TEXT,
+    GENERATE_EPILOG,
+)
 from agentic_writer.log_config import get_logger, setup_logging
 from agentic_writer.pipeline import run_pipeline
 
@@ -18,7 +23,10 @@ log = get_logger("cli")
 
 app = typer.Typer(
     no_args_is_help=True,
-    help="Agentic Writer — pipeline Writer → Editor → export",
+    help=(
+        "Agentic Writer — Architecte → chapitres → Editor → Auditeur → export (docx/pdf A5).\n\n"
+        "Formats récit : flash | nouvelle | novella — détails : agentic-writer formats"
+    ),
 )
 
 
@@ -61,16 +69,29 @@ def doctor() -> None:
     raise typer.Exit(code)
 
 
+@app.command("formats")
+def formats_cmd() -> None:
+    """Affiche les formats récit (mots, pages A5) et les options CLI."""
+    typer.echo(FORMATS_HELP_TEXT)
+
+
 @app.command()
 def generate(
     slug: Optional[str] = typer.Argument(None, help="Story slug (output folder name)"),
     pitch: Optional[str] = typer.Option(None, "--pitch", help="One-line pitch"),
     brief: Optional[Path] = typer.Option(None, "--brief", help="YAML brief file"),
-    format: Optional[str] = typer.Option(None, "--format", help="flash | nouvelle | novella"),
+    format: Optional[str] = typer.Option(None, "--format", help=FORMAT_OPTION_HELP),
     lang: Optional[str] = typer.Option(None, "--lang", help="fr | en"),
-    md_only: bool = typer.Option(False, "--md-only", help="Skip docx/pdf export"),
+    md_only: bool = typer.Option(
+        False,
+        "--md-only",
+        help="Artefacts markdown seulement (pas docx/pdf A5)",
+    ),
 ) -> None:
-    """Run Writer → Editor pipeline."""
+    f"""Run Writer → Editor pipeline.
+
+    {GENERATE_EPILOG}
+    """
     try:
         brief_model = load_brief(slug, pitch=pitch, brief_path=brief, format=format, lang=lang)
     except typer.Exit:
@@ -79,7 +100,8 @@ def generate(
         log.error("Brief invalide : {}", exc)
         raise typer.Exit(2) from exc
 
-    if not load_settings().get("openai_api_key"):
+    settings = load_settings()
+    if not settings.get("openai_api_key"):
         log.warning("OPENAI_API_KEY non défini")
 
     log.info(

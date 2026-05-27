@@ -23,7 +23,7 @@ from agentic_writer.pipeline import run_pipeline
 studio_log = get_logger("studio")
 
 STUDIO_INSTRUCTIONS = dedent("""
-    Tu es l'orchestrateur du studio Agentic Writer (pipeline récit : Writer → Editor → export).
+    Tu es l'orchestrateur du studio Agentic Writer (Architecte → chapitres → Editor → Auditeur → export).
 
     Quand l'utilisateur demande de générer une nouvelle :
     1. Extrais slug et pitch du message (ou demande-les brièvement).
@@ -106,7 +106,7 @@ def create_studio_agent() -> Agent[StateDeps[StudioState], str]:
         lang: str | None = None,
         md_only: bool = False,
     ) -> ToolReturn:
-        """Exécute le pipeline Writer → Editor → export et met à jour les étapes en direct."""
+        """Exécute le pipeline récit et met à jour les étapes en direct."""
         state = ctx.deps.state
         state.slug = slug or state.slug
         state.pitch = pitch or state.pitch

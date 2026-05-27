@@ -13,10 +13,12 @@ class PipelineStepDef:
 def pipeline_step_defs(*, include_export: bool) -> list[PipelineStepDef]:
     steps = [
         PipelineStepDef("Valider le brief (slug, pitch, format)"),
-        PipelineStepDef("Writer — fiche twist + brouillon"),
-        PipelineStepDef("Editor — relecture et manuscrit corrigé"),
+        PipelineStepDef("Architecte — twist_sheet + plan chapitres"),
+        PipelineStepDef("Writer — rédaction chapitre par chapitre"),
+        PipelineStepDef("Editor — relecture manuscrit assemblé"),
+        PipelineStepDef("Auditeur — contrôle qualité adversarial"),
+        PipelineStepDef("Artefacts — blueprint, chapitres, audit"),
     ]
-    steps.append(PipelineStepDef("Artefacts markdown — twist, brouillon, relecture"))
     if include_export:
         steps.append(
             PipelineStepDef("Print layout — docx & pdf (A5 Palatino, skill print-layout)")

@@ -1,14 +1,34 @@
-"""Writer → Editor pipeline orchestration."""
+"""Pipeline récit — architecte → chapitres → editor → auditeur."""
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Union
 
 from agentic_writer.cleanup import cleanup_work_dir
-from agentic_writer.io import build_edit_prompt, build_writer_prompt, save_artifacts
+from agentic_writer.editorial_guards import (
+    check_manuscript_length,
+    check_twist_sheet,
+    merge_guard_issues,
+)
+from agentic_writer.editorial_io import (
+    assemble_manuscript,
+    build_architect_prompt,
+    build_auditor_prompt,
+    build_chapter_prompt,
+    normalize_blueprint_chapters,
+    save_chapter_artifacts,
+)
+from agentic_writer.editorial_models import (
+    AuditorVerdict,
+    ChapterDraft,
+    StoryBlueprint,
+)
+from agentic_writer.editorial_plan import chapter_plan_for
+from agentic_writer.io import build_edit_prompt, save_artifacts
 from agentic_writer.log_config import get_logger
-from agentic_writer.models import Brief, PipelineResult
+from agentic_writer.models import Brief, EditorResult, PipelineResult, WriterResult
 from agentic_writer.pipeline_progress import (
     log_pipeline_complete,
     log_pipeline_plan,
@@ -20,18 +40,21 @@ from agentic_writer.pipeline_steps import pipeline_step_labels
 if TYPE_CHECKING:
     from pydantic_ai import Agent
 
-    from agentic_writer.models import EditorResult, WriterResult
+    from agentic_writer.agents.chapter_writer import ChapterWriterResult
+    from agentic_writer.editorial_models import ArchitectResult
 
 log = get_logger("pipeline")
 
 StepHook = Callable[[int, str], Awaitable[None] | None]
+DoneDetail = Union[str, Callable[[], str | None], None]
 
-# Indices alignés sur default_pipeline_steps / UI Studio
 IDX_BRIEF = 0
-IDX_WRITER = 1
-IDX_EDITOR = 2
-IDX_ARTIFACTS = 3
-IDX_PRINT = 4  # présent seulement si include_export
+IDX_ARCHITECT = 1
+IDX_CHAPTERS = 2
+IDX_EDITOR = 3
+IDX_AUDITOR = 4
+IDX_ARTIFACTS = 5
+IDX_PRINT = 6
 
 
 class PipelineError(Exception):
@@ -51,48 +74,105 @@ async def _run_step(
     on_step_start: StepHook | None,
     on_step_complete: StepHook | None,
     work: Callable[[], Awaitable[None] | None],
-    done_detail: str | None = None,
+    done_detail: DoneDetail = None,
 ) -> None:
     log_step_start(index, total, label)
     await _maybe_await(on_step_start(index, "running") if on_step_start else None)
     await _maybe_await(work())
-    log_step_done(index, total, label, detail=done_detail)
+    detail = done_detail() if callable(done_detail) else done_detail
+    log_step_done(index, total, label, detail=detail)
     await _maybe_await(on_step_complete(index, "completed") if on_step_complete else None)
+
+
+async def _write_chapters(
+    brief: Brief,
+    blueprint: StoryBlueprint,
+    chapter_agent: Agent[None, ChapterWriterResult],
+    *,
+    rewrite_indices: set[int] | None = None,
+) -> tuple[list[ChapterDraft], str | None]:
+    from agentic_writer.agents.chapter_writer import ChapterWriterResult
+
+    drafts_by_index: dict[int, ChapterDraft] = {}
+    previous: str | None = None
+    prologue_text: str | None = None
+    plan = chapter_plan_for(brief.format)
+
+    if plan.include_prologue and blueprint.prologue_beat:
+        prologue_prompt = (
+            f"Rédige le prologue choc (200–400 mots), 1re personne, présent.\n"
+            f"Langue : {brief.lang}\n"
+            f"Beat : {blueprint.prologue_beat}\n"
+            f"TWIST FINAL (ne pas révéler trop tôt) : {blueprint.twist_sheet.twist_final}\n"
+        )
+        prologue_text = (await chapter_agent.run(prologue_prompt)).output.content
+        previous = prologue_text
+
+    for chapter in blueprint.chapters:
+        if rewrite_indices is not None and chapter.index not in rewrite_indices:
+            continue
+        prompt = build_chapter_prompt(
+            brief, blueprint, chapter, previous_excerpt=previous
+        )
+        content = (await chapter_agent.run(prompt)).output.content
+        draft = ChapterDraft.from_outline(chapter, content)
+        drafts_by_index[chapter.index] = draft
+        previous = content
+
+    ordered = [drafts_by_index[i] for i in sorted(drafts_by_index)]
+    return ordered, prologue_text
 
 
 async def run_pipeline(
     brief: Brief,
     *,
     md_only: bool = False,
-    writer: Agent[None, WriterResult] | None = None,
+    architect: Agent[None, ArchitectResult] | None = None,
+    chapter_writer: Agent[None, ChapterWriterResult] | None = None,
     editor: Agent[None, EditorResult] | None = None,
+    auditor: Agent[None, AuditorVerdict] | None = None,
     on_step_start: StepHook | None = None,
     on_step_complete: StepHook | None = None,
 ) -> PipelineResult:
-    from agentic_writer.agents import create_editor_agent, create_writer_agent
+    from agentic_writer.agents import create_editor_agent
+    from agentic_writer.agents.architect import create_architect_agent
+    from agentic_writer.agents.auditor import create_auditor_agent
+    from agentic_writer.agents.chapter_writer import (
+        ChapterWriterResult,
+        create_chapter_writer_agent,
+    )
+    from agentic_writer.config import load_settings
     from agentic_writer.docx_build import build_docx
+    from agentic_writer.editorial_models import ArchitectResult
 
+    settings = load_settings()
+    max_retries = settings["max_audit_retries"]
     labels = pipeline_step_labels(include_export=not md_only)
     total = len(labels)
-    idx_artifacts = total - 1
+    idx_delivery = total - 1
 
     log_pipeline_plan(brief.slug, labels, md_only=md_only)
 
-    writer_agent = writer or create_writer_agent()
+    architect_agent = architect or create_architect_agent()
+    chapter_agent = chapter_writer or create_chapter_writer_agent()
     editor_agent = editor or create_editor_agent()
+    auditor_agent = auditor or create_auditor_agent()
 
+    plan = chapter_plan_for(brief.format)
+    blueprint_holder: dict[str, StoryBlueprint] = {}
+    drafts_holder: dict[str, list[ChapterDraft]] = {}
+    prologue_holder: dict[str, str | None] = {"text": None}
     written_holder: dict[str, WriterResult] = {}
     edited_holder: dict[str, EditorResult] = {}
-    work_holder: dict[str, object] = {}
+    audit_holder: dict[str, AuditorVerdict] = {}
+    work_holder: dict[str, Path] = {}
 
-    # ── 0. Brief ──
     async def _brief() -> None:
         log.debug(
-            "brief slug={} format={} lang={} pitch={!r:.80}",
+            "brief slug={} format={} chapters={}",
             brief.slug,
             brief.format,
-            brief.lang,
-            brief.pitch,
+            plan.chapter_count,
         )
 
     await _run_step(
@@ -105,30 +185,52 @@ async def run_pipeline(
         done_detail=f"{brief.format} / {brief.lang}",
     )
 
-    # ── 1. Writer ──
-    async def _writer() -> None:
-        written_holder["out"] = (await writer_agent.run(build_writer_prompt(brief))).output
+    async def _architect() -> None:
+        raw = (await architect_agent.run(build_architect_prompt(brief, plan))).output
+        blueprint_holder["bp"] = normalize_blueprint_chapters(raw.blueprint, plan)
 
     await _run_step(
-        IDX_WRITER,
+        IDX_ARCHITECT,
         total,
-        labels[IDX_WRITER],
+        labels[IDX_ARCHITECT],
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
-        work=_writer,
+        work=_architect,
+        done_detail=f"{plan.chapter_count} chapitres planifiés",
     )
-    written = written_holder["out"]
-    twist_preview = (written.twist_sheet.twist_final or "")[:60]
-    log.info(
-        "  └─ brouillon : {} car., twist={!r}",
-        len(written.manuscript),
-        twist_preview,
+    blueprint = blueprint_holder["bp"]
+
+    async def _chapters() -> None:
+        drafts, prologue = await _write_chapters(brief, blueprint, chapter_agent)
+        drafts_holder["drafts"] = drafts
+        prologue_holder["text"] = prologue
+
+    await _run_step(
+        IDX_CHAPTERS,
+        total,
+        labels[IDX_CHAPTERS],
+        on_step_start=on_step_start,
+        on_step_complete=on_step_complete,
+        work=_chapters,
+        done_detail=lambda: f"{len(drafts_holder['drafts'])} chapitres rédigés",
     )
 
-    # ── 2. Editor ──
+    def _manuscript() -> str:
+        return assemble_manuscript(
+            blueprint,
+            drafts_holder["drafts"],
+            prologue_text=prologue_holder["text"],
+        )
+
+    manuscript = _manuscript()
+    written_holder["out"] = WriterResult(
+        twist_sheet=blueprint.twist_sheet,
+        manuscript=manuscript,
+    )
+
     async def _editor() -> None:
         edited_holder["out"] = (
-            await editor_agent.run(build_edit_prompt(written))
+            await editor_agent.run(build_edit_prompt(written_holder["out"]))
         ).output
 
     await _run_step(
@@ -139,12 +241,78 @@ async def run_pipeline(
         on_step_complete=on_step_complete,
         work=_editor,
     )
-    edited = edited_holder["out"]
-    log.info("  └─ corrigé : {} car.", len(edited.manuscript_corrected))
 
-    # ── 3. Artefacts markdown ──
-    async def _save_md() -> None:
-        work_holder["path"] = save_artifacts(brief, written, edited)
+    async def _audit_loop() -> None:
+        retries = 0
+        while True:
+            corrected = edited_holder["out"].manuscript_corrected
+            guards = merge_guard_issues(
+                check_twist_sheet(blueprint.twist_sheet),
+                check_manuscript_length(brief, corrected),
+            )
+            verdict = (
+                await auditor_agent.run(
+                    build_auditor_prompt(
+                        brief,
+                        blueprint.twist_sheet,
+                        corrected,
+                        guards,
+                    )
+                )
+            ).output
+            audit_holder["v"] = verdict
+
+            rewrite = set(verdict.chapters_to_rewrite)
+            if verdict.passed or not rewrite or retries >= max_retries:
+                break
+
+            retries += 1
+            log.info("Réécriture chapitres {}", sorted(rewrite))
+            new_drafts, _ = await _write_chapters(
+                brief,
+                blueprint,
+                chapter_agent,
+                rewrite_indices=rewrite,
+            )
+            by_idx = {d.index: d for d in drafts_holder["drafts"]}
+            for d in new_drafts:
+                by_idx[d.index] = d
+            drafts_holder["drafts"] = [by_idx[i] for i in sorted(by_idx)]
+            manuscript = _manuscript()
+            written_holder["out"] = WriterResult(
+                twist_sheet=blueprint.twist_sheet,
+                manuscript=manuscript,
+            )
+            edited_holder["out"] = (
+                await editor_agent.run(build_edit_prompt(written_holder["out"]))
+            ).output
+
+    await _run_step(
+        IDX_AUDITOR,
+        total,
+        labels[IDX_AUDITOR],
+        on_step_start=on_step_start,
+        on_step_complete=on_step_complete,
+        work=_audit_loop,
+        done_detail=lambda: (
+            "OK"
+            if audit_holder.get("v") and audit_holder["v"].passed
+            else f"score {audit_holder['v'].overall_score}"
+            if audit_holder.get("v")
+            else None
+        ),
+    )
+
+    async def _save() -> None:
+        edited = edited_holder["out"]
+        work = save_artifacts(brief, written_holder["out"], edited)
+        save_chapter_artifacts(work, blueprint, drafts_holder["drafts"])
+        verdict = audit_holder.get("v")
+        if verdict:
+            (work / "audit_report.md").write_text(
+                verdict.review_markdown, encoding="utf-8"
+            )
+        work_holder["path"] = work
 
     await _run_step(
         IDX_ARTIFACTS,
@@ -152,16 +320,14 @@ async def run_pipeline(
         labels[IDX_ARTIFACTS],
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
-        work=_save_md,
+        work=_save,
     )
-    work = work_holder["path"]  # type: ignore[assignment]
-    log.info("  └─ markdown : {}", work)
+    work = work_holder["path"]
 
-    # ── 4. Print layout (optionnel) — skill print-layout / twilight-zone pipeline ──
     if not md_only:
 
-        async def _print_layout() -> None:
-            build_docx(brief.slug, work, edited.manuscript_corrected)
+        async def _print() -> None:
+            build_docx(brief.slug, work, edited_holder["out"].manuscript_corrected)
 
         await _run_step(
             IDX_PRINT,
@@ -169,26 +335,17 @@ async def run_pipeline(
             labels[IDX_PRINT],
             on_step_start=on_step_start,
             on_step_complete=on_step_complete,
-            work=_print_layout,
+            work=_print,
             done_detail=f"{work}/{brief.slug}.docx + .pdf",
         )
-    else:
-        log.info("  └─ export docx/pdf ignoré (--md-only)")
 
-    # ── Livraison ──
     async def _done() -> None:
-        removed = cleanup_work_dir(brief.slug, work)
-        log.debug(
-            "fichiers livrés : twist_sheet.json, draft_manuscript.md, review.md, "
-            "manuscript_final.md"
-            + (f", {brief.slug}.docx, {brief.slug}.pdf" if not md_only else "")
-            + (f" | temp supprimés : {', '.join(removed)}" if removed else "")
-        )
+        cleanup_work_dir(brief.slug, work)
 
     await _run_step(
-        idx_artifacts,
+        idx_delivery,
         total,
-        labels[idx_artifacts],
+        labels[idx_delivery],
         on_step_start=on_step_start,
         on_step_complete=on_step_complete,
         work=_done,
@@ -198,7 +355,9 @@ async def run_pipeline(
     log_pipeline_complete(str(work))
     return PipelineResult(
         brief=brief,
-        written=written,
-        edited=edited,
+        written=written_holder["out"],
+        edited=edited_holder["out"],
         output_dir=str(work),
+        blueprint=blueprint,
+        audit=audit_holder.get("v"),
     )

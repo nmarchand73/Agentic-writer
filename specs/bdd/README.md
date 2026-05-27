@@ -10,7 +10,7 @@ Contrat SDD (Wasowski) : langage métier, valeurs concrètes, un `When` = une ac
 | `02_cli_generate` | Brief minimal, YAML, md-only vs export |
 | `03_pipeline_text` | Writer → Editor, artefacts, twist_sheet |
 | `04_export_imprimable` | print-layout, nettoyage temporaires |
-| `05_e2e_live` | Génération réelle (API, skip si pas de clé) |
+| `05_e2e_live` | Génération réelle **format flash** + `--md-only` (API, skip si pas de clé) |
 | `06_ag_ui_studio` | Health, manuscrit, PDF, état pipeline UI |
 | `07_studio_threads` | Persistance conversations Studio (disque) |
 

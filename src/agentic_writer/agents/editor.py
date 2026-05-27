@@ -12,7 +12,7 @@ from agentic_writer.skills import editor_capability
 def create_editor_agent() -> Agent[None, EditorResult]:
     settings = load_settings()
     return Agent(
-        settings["openai_model"],
+        settings["model_editor"],
         instructions=(
             "Tu es l'agent de relecture (skill manuscript-editor). "
             "Utilise manuscript-editor et lis les guides story-writer via read_skill_resource si besoin. "

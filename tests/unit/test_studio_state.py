@@ -8,14 +8,14 @@ from agentic_writer.api.studio_state import (
 
 def test_default_steps_with_export():
     steps = default_pipeline_steps(include_export=True)
-    assert len(steps) == 6
+    assert len(steps) == 8
     assert steps[0].status == "pending"
     assert any("Print layout" in s.description for s in steps)
 
 
 def test_default_steps_md_only():
     steps = default_pipeline_steps(include_export=False)
-    assert len(steps) == 5
+    assert len(steps) == 7
     assert not any("Print layout" in s.description for s in steps)
 
 

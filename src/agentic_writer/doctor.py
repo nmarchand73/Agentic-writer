@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from agentic_writer.config import (
+    ARCHITECT_SKILL_DIR,
+    AUDITOR_SKILL_DIR,
     BUILD_STORY_SCRIPT,
     EDITOR_SKILL_DIR,
     GENERATE_FROM_MD_SCRIPT,
@@ -58,6 +60,18 @@ def run_doctor(*, require_writer_skill: bool = True) -> DoctorReport:
         report.warn("Print layout skill not found (print-layout)")
     else:
         report.info("Skill print-layout present")
+
+    architect_md = ARCHITECT_SKILL_DIR / "SKILL.md"
+    if not architect_md.exists():
+        report.warn("Architect skill story-architect not found")
+    else:
+        report.info("Skill story-architect present")
+
+    auditor_md = AUDITOR_SKILL_DIR / "SKILL.md"
+    if not auditor_md.exists():
+        report.warn("Auditor skill story-auditor not found")
+    else:
+        report.info("Skill story-auditor present")
 
     if BUILD_STORY_SCRIPT.exists() and GENERATE_FROM_MD_SCRIPT.exists():
         report.info("Print pipeline scripts present")

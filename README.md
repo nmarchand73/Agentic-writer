@@ -1,6 +1,6 @@
 # Agentic Writer
 
-Automated **story pipeline** (Writer → Editor → markdown → **docx/pdf**). **CLI** runs it headlessly; **Studio** adds [CopilotKit](https://www.copilotkit.ai/) v2 + [AG-UI](https://docs.ag-ui.com/) generative UI (pipeline state, manuscript, PDF) over the same `run_pipeline()`.
+Automated **story pipeline** (Architect → chapters → Editor → Auditor → markdown → **docx/pdf**). **CLI** runs it headlessly; **Studio** adds [CopilotKit](https://www.copilotkit.ai/) + [AG-UI](https://docs.ag-ui.com/) generative UI over the same `run_pipeline()`.
 
 **Site:** [nmarchand73.github.io/Agentic-writer](https://nmarchand73.github.io/Agentic-writer/) · **Repo diagrams:** [`docs/diagrams/`](docs/diagrams/)
 
@@ -282,9 +282,14 @@ uv run agentic-writer generate <slug> \
 
 | Flag | Purpose |
 |------|---------|
+| `--format` | `flash` \| `nouvelle` \| `novella` — word counts & A5 pages: `uv run agentic-writer formats` |
 | `--brief path.yaml` | YAML brief |
 | `--md-only` | Skip docx/pdf |
 | `-v` / `-q` | DEBUG / WARNING logs |
+
+```bash
+uv run agentic-writer formats   # table: mots, pages A5, export docx/pdf
+```
 
 **Output:** `NewBooks/output/<slug>/` — markdown artefacts plus optional docx/pdf.
 
@@ -320,7 +325,7 @@ Open [http://localhost:3000](http://localhost:3000). **History** resumes chats f
 ```bash
 uv run pytest -m "bootstrap or unit or integration or ui"   # CI, no OpenAI
 uv run pytest tests/bdd/                                    # all Gherkin
-uv run pytest -m e2e                                        # live API
+uv run pytest -m e2e                                        # live API, format flash, --md-only
 cd web && npm run build                                     # optional
 ```
 

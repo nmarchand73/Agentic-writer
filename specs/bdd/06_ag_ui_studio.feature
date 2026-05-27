@@ -40,5 +40,5 @@ Fonctionnalité: API Studio pour l'interface CopilotKit
     Quand je construis les étapes pipeline avec export imprimable
     Alors l'état studio contient le slug "studio-integ"
     Et l'état studio contient le pitch "Test pitch."
-    Et les étapes pipeline contiennent "Writer — fiche twist + brouillon"
+    Et les étapes pipeline contiennent "Architecte — twist_sheet + plan chapitres"
     Et les étapes pipeline contiennent "Print layout — docx & pdf"

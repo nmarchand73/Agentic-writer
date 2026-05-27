@@ -83,3 +83,5 @@ class PipelineResult(BaseModel):
     written: WriterResult
     edited: EditorResult
     output_dir: str
+    blueprint: object | None = None  # StoryBlueprint when editorial v2
+    audit: object | None = None  # AuditorVerdict when editorial v2

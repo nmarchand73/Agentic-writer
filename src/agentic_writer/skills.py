@@ -7,7 +7,12 @@ from pathlib import Path
 
 from pydantic_ai_skills import SkillsCapability
 
-from agentic_writer.config import EDITOR_SKILL_DIR, WRITER_SKILL_DIR
+from agentic_writer.config import (
+    ARCHITECT_SKILL_DIR,
+    AUDITOR_SKILL_DIR,
+    EDITOR_SKILL_DIR,
+    WRITER_SKILL_DIR,
+)
 
 
 def _skill_name_from_path(path: Path) -> str | None:
@@ -46,6 +51,18 @@ def writer_capability() -> SkillsCapability:
 def editor_capability() -> SkillsCapability:
     return SkillsCapability(
         directories=[str(EDITOR_SKILL_DIR), str(WRITER_SKILL_DIR)]
+    )
+
+
+def architect_capability() -> SkillsCapability:
+    return SkillsCapability(
+        directories=[str(ARCHITECT_SKILL_DIR), str(WRITER_SKILL_DIR)]
+    )
+
+
+def auditor_capability() -> SkillsCapability:
+    return SkillsCapability(
+        directories=[str(AUDITOR_SKILL_DIR), str(EDITOR_SKILL_DIR), str(WRITER_SKILL_DIR)]
     )
 
 

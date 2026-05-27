@@ -2,5 +2,16 @@
 format = "nouvelle"
 lang = "fr"
 
+[pipeline]
+max_audit_retries = 1
+
 [output]
 root = "../output"
+
+# Modèles par rôle (optionnel — défaut : OPENAI_MODEL)
+# [models]
+# architect = "openai-chat:gpt-4.1-mini"
+# writer = "openai-chat:gpt-4.1-mini"
+# chapter = "openai-chat:gpt-4.1-mini"
+# editor = "openai-chat:gpt-4.1-mini"
+# auditor = "openai-chat:gpt-4.1-nano"

@@ -37,6 +37,8 @@ def _run_runner_bdd(
     script: str,
     thread_id: str,
     message: str = "",
+    step_count: int | None = None,
+    slug: str | None = None,
 ) -> None:
     env = {
         **os.environ,
@@ -45,6 +47,10 @@ def _run_runner_bdd(
         "BDD_THREAD_ID": thread_id,
         "BDD_MESSAGE": message,
     }
+    if step_count is not None:
+        env["BDD_STEP_COUNT"] = str(step_count)
+    if slug is not None:
+        env["BDD_SLUG"] = slug
     result = subprocess.run(
         ["npx", "--yes", "tsx", "tests/thread-runner-bdd.ts"],
         cwd=WEB_ROOT,
@@ -65,6 +71,45 @@ def _run_runner_bdd(
 def empty_threads_dir(context, threads_dir):
     context["threads_dir"] = threads_dir
     threads_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _state_snapshot_events(
+    *,
+    step_count: int,
+    slug: str,
+) -> list[dict]:
+    steps = [
+        {
+            "description": f"Étape {i + 1}",
+            "status": "completed" if i < step_count - 1 else "running",
+        }
+        for i in range(step_count)
+    ]
+    return [
+        {
+            "type": "STATE_SNAPSHOT",
+            "snapshot": {"slug": slug, "steps": steps},
+        }
+    ]
+
+
+@given(
+    parsers.parse(
+        'un thread "{thread_id}" sauvegardé sur disque avec un snapshot pipeline '
+        'de {step_count:d} étapes et le slug "{slug}"'
+    )
+)
+def thread_saved_with_snapshot(context, threads_dir, thread_id, step_count, slug):
+    context["threads_dir"] = threads_dir
+    context["last_thread_id"] = thread_id
+    context["bdd_step_count"] = step_count
+    context["bdd_slug"] = slug
+    save_thread_fixture(
+        threads_dir,
+        thread_id,
+        "Brief BDD snapshot",
+        events=_state_snapshot_events(step_count=step_count, slug=slug),
+    )
 
 
 @given(parsers.parse('un thread "{thread_id}" sauvegardé sur disque'))
@@ -151,6 +196,28 @@ def thread_title_on_disk(context, threads_dir, title):
 @then(parsers.parse('le runner liste le thread "{thread_id}"'))
 def runner_lists_thread(threads_dir, thread_id):
     _run_runner_bdd(threads_dir, script="list-and-messages", thread_id=thread_id)
+
+
+@then(parsers.parse('le runner expose {count:d} étapes pipeline pour le thread "{thread_id}"'))
+def runner_has_pipeline_steps(context, threads_dir, count, thread_id):
+    _run_runner_bdd(
+        threads_dir,
+        script="get-state",
+        thread_id=thread_id,
+        step_count=count,
+    )
+
+
+@then(parsers.parse('le runner expose le slug "{slug}" pour ce thread'))
+def runner_has_slug(context, threads_dir, slug):
+    thread_id = context["last_thread_id"]
+    _run_runner_bdd(
+        threads_dir,
+        script="get-state",
+        thread_id=thread_id,
+        step_count=context.get("bdd_step_count"),
+        slug=slug,
+    )
 
 
 @then(

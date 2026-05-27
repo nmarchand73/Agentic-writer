@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from agentic_writer.pipeline_steps import pipeline_step_defs
+
 StepStatus = Literal["pending", "completed", "running"]
 
 
@@ -29,8 +31,6 @@ class StudioState(BaseModel):
 
 
 def default_pipeline_steps(*, include_export: bool = True) -> list[PipelineStep]:
-    from agentic_writer.pipeline_steps import pipeline_step_defs
-
     return [
         PipelineStep(description=s.description)
         for s in pipeline_step_defs(include_export=include_export)

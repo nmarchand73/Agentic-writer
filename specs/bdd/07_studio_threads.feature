@@ -29,6 +29,14 @@ Fonctionnalité: Mémoire des conversations Studio
     Alors le runner liste 2 threads
 
   @integration @ui
+  Scénario: Le runner restitue le dernier STATE_SNAPSHOT d'un thread sur disque
+    Étant donné un dossier studio threads vide
+    Et un thread "bdd-state-1" sauvegardé sur disque avec un snapshot pipeline de 3 étapes et le slug "radar-uap"
+    Quand je crée un runner studio frais sur ce dossier
+    Alors le runner expose 3 étapes pipeline pour le thread "bdd-state-1"
+    Et le runner expose le slug "radar-uap" pour ce thread
+
+  @integration @ui
   Scénario: Supprimer une conversation retire son fichier
     Étant donné un dossier studio threads vide
     Et un thread "bdd-del-1" sauvegardé sur disque

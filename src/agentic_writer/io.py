@@ -30,21 +30,6 @@ def save_artifacts(brief: Brief, written: WriterResult, edited: EditorResult) ->
     return work
 
 
-def build_writer_prompt(brief: Brief) -> str:
-    theme_line = f"\nThème : {brief.theme}" if brief.theme else ""
-    return (
-        f"Écris une histoire de suspense psychologique domestique complète.\n"
-        f"Titre : {brief.resolved_title()}\n"
-        f"Slug : {brief.slug}\n"
-        f"Format : {brief.format}\n"
-        f"Langue : {brief.lang}\n"
-        f"Pitch : {brief.pitch}{theme_line}\n\n"
-        "Charge la skill story-writer, remplis la fiche twist, "
-        "puis rédige le manuscrit. Retourne un WriterResult structuré "
-        "(twist_sheet + manuscript markdown)."
-    )
-
-
 def build_edit_prompt(written: WriterResult) -> str:
     twist = written.twist_sheet
     return (

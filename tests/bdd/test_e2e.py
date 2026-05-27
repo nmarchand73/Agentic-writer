@@ -1,7 +1,11 @@
-"""BDD slice 5 — génération réelle (nightly, OPENAI_API_KEY)."""
+"""BDD slice 5 — génération réelle (nightly, OPENAI_API_KEY).
+
+Toujours format **flash** : 1 chapitre planifié, coût API maîtrisé (pipeline Architecte → chapitres → Auditeur).
+"""
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -10,10 +14,16 @@ from pathlib import Path
 import pytest
 from pytest_bdd import given, scenarios, then, when
 
+from agentic_writer.editorial_plan import chapter_plan_for
+
 scenarios("../../specs/bdd/05_e2e_live.feature")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_SLUG = "e2e-flash"
+E2E_FORMAT = "flash"
+E2E_PITCH = (
+    "Formation lumineuse non cataloguée ; voix de secours avec le prénom de sa mère morte."
+)
 
 
 @pytest.fixture
@@ -45,9 +55,9 @@ def run_generate_e2e(context, tmp_path, monkeypatch):
             "generate",
             OUTPUT_SLUG,
             "--pitch",
-            "Formation lumineuse non cataloguée ; voix de secours avec le prénom de sa mère morte.",
+            E2E_PITCH,
             "--format",
-            "flash",
+            E2E_FORMAT,
             "--md-only",
         ],
         cwd=PROJECT_ROOT,
@@ -70,3 +80,12 @@ def manuscript_size(context):
     path = context["work"] / "manuscript_final.md"
     assert path.is_file(), f"manquant: {path}"
     assert path.stat().st_size > 500
+
+
+@then("le plan chapitres correspond au format flash")
+def blueprint_matches_flash(context):
+    path = context["work"] / "blueprint.json"
+    assert path.is_file(), f"manquant: {path}"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    expected = chapter_plan_for(E2E_FORMAT).chapter_count
+    assert len(data["chapters"]) == expected

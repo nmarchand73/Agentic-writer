@@ -55,6 +55,21 @@ switch (script) {
     }
     break;
   }
+  case "get-state": {
+    const state = runner.getThreadState(threadId);
+    const expectedSteps = Number(process.env.BDD_STEP_COUNT ?? "0");
+    const steps = state?.steps;
+    if (!Array.isArray(steps) || steps.length !== expectedSteps) {
+      fail(
+        `attendu ${expectedSteps} steps dans state, obtenu: ${JSON.stringify(state)}`,
+      );
+    }
+    const expectedSlug = process.env.BDD_SLUG;
+    if (expectedSlug && state?.slug !== expectedSlug) {
+      fail(`slug attendu ${expectedSlug}, obtenu ${String(state?.slug)}`);
+    }
+    break;
+  }
   default:
     fail(`BDD_SCRIPT inconnu: ${script}`);
 }

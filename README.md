@@ -1,18 +1,16 @@
 # Agentic Writer
 
-Automated **story pipeline** (Writer → Editor → markdown → **docx/pdf**). The **Studio** uses **[CopilotKit](https://www.copilotkit.ai/) v2** + **[AG-UI](https://docs.ag-ui.com/)**: **Pydantic AI** serves `/agui`, **Next.js** runs the CopilotKit runtime (`HttpAgent`, persisted threads). **Generative UI** syncs pipeline steps, manuscript, and errors via shared agent state (`STATE_SNAPSHOT` / `STATE_DELTA`)—not chat-only. **CLI** runs the same pipeline headlessly.
+Automated **story pipeline** (Writer → Editor → markdown → **docx/pdf**). **CLI** runs it headlessly; **Studio** adds [CopilotKit](https://www.copilotkit.ai/) v2 + [AG-UI](https://docs.ag-ui.com/) generative UI (pipeline state, manuscript, PDF) over the same `run_pipeline()`.
 
-**Site:** [nmarchand73.github.io/Agentic-writer](https://nmarchand73.github.io/Agentic-writer/) (overview) · full Studio runs locally.
+**Site:** [nmarchand73.github.io/Agentic-writer](https://nmarchand73.github.io/Agentic-writer/) · **Repo diagrams:** [`docs/diagrams/`](docs/diagrams/)
 
 ---
 
 ## Architecture
 
-Agentic Writer is **one story pipeline** with **two entry points**: the **CLI** (headless) and the **Studio** (browser + generative UI). Both call the same `run_pipeline()` in Python; only the Studio adds AG-UI state, CopilotKit threads, and REST helpers for manuscript/PDF.
+One pipeline, two entry points: **CLI** (`generate`) and **Studio** (Next.js + FastAPI `/agui`). C4 views below render on [GitHub](https://github.com/nmarchand73/Agentic-writer); sources live in [`docs/diagrams/`](docs/diagrams/).
 
-Diagrams use the [C4 model](https://c4model.com/) in [Mermaid](https://mermaid.ai/open-source/syntax/c4.html) fenced blocks below. **They render on GitHub** when you view this README on the repo ([creating diagrams](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams)). Editable copies: [`docs/diagrams/`](docs/diagrams/).
-
-### Level 1 — System context (C4Context)
+### System context
 
 ```mermaid
 C4Context
@@ -30,7 +28,7 @@ C4Context
   Rel(author, pages, "Reads overview", "HTTPS")
 ```
 
-### Level 2 — Containers (C4Container)
+### Containers
 
 ```mermaid
 C4Container
@@ -60,9 +58,10 @@ C4Container
   Rel(studio_web, threads, "Persists threads")
 ```
 
-### Level 3 — Components (C4Component)
+<details>
+<summary>More diagrams (components, flows, deployment)</summary>
 
-**Studio API** (`src/agentic_writer/api/`)
+### Studio API components
 
 ```mermaid
 C4Component
@@ -86,7 +85,7 @@ C4Component
   Rel(rest, artifacts, "Reads files")
 ```
 
-**Story pipeline** (`src/agentic_writer/`)
+### Story pipeline components
 
 ```mermaid
 C4Component
@@ -117,9 +116,7 @@ C4Component
   Rel(export, artifacts, "Writes docx and pdf")
 ```
 
-### Dynamic — Studio generate (C4Dynamic)
-
-Numbered `Rel` order = runtime sequence.
+### Studio generate (runtime)
 
 ```mermaid
 C4Dynamic
@@ -152,13 +149,9 @@ C4Dynamic
   Rel(rest, artifacts, "12 Reads files")
 ```
 
-- **Generative UI:** `StudioState` (slug, steps, errors) via AG-UI `STATE_SNAPSHOT` / `STATE_DELTA`; manuscript body loaded from REST, not stuffed into state.
-- **Threads:** `StudioAgentRunner` persists CopilotKit threads under `.data/studio-threads/` (`AGENTIC_WRITER_THREADS_DIR`).
-- **Long runs:** `StudioProgressBridge` streams step updates while `run_story_generation` is still running.
+### Pipeline steps
 
-### Dynamic — Pipeline steps (C4Dynamic)
-
-Same labels as `pipeline_steps.py` (CLI logs, Studio checklist, BDD).
+Labels match `pipeline_steps.py` (CLI, Studio, BDD).
 
 ```mermaid
 C4Dynamic
@@ -183,35 +176,13 @@ C4Dynamic
   Rel(io, artifacts, "Writes md and json")
 ```
 
-| Step | Code | Output (under `output/<slug>/`) |
-|------|------|----------------------------------|
-| Brief | `models.Brief`, `brief_io` | — |
-| Writer | `agents/writer` + `skills/story-writer/` | `twist_sheet.json`, `draft_manuscript.md` |
-| Editor | `agents/editor` + `skills/manuscript-editor/` | `review.md`, `manuscript_final.md` |
-| Artefacts | `io.save_artifacts` | all markdown + JSON |
-| Print | `docx_build` + `skills/print-layout/` | `<slug>.docx`, `<slug>.pdf` (skip with `--md-only`) |
+| Step | Output in `output/<slug>/` |
+|------|----------------------------|
+| Writer | `twist_sheet.json`, `draft_manuscript.md` |
+| Editor | `review.md`, `manuscript_final.md` |
+| Print | `<slug>.docx`, `<slug>.pdf` (omit with `--md-only`) |
 
-### Repository map
-
-| Path | Role |
-|------|------|
-| `src/agentic_writer/cli.py` | Typer commands (`generate`, `serve`, `doctor`) |
-| `src/agentic_writer/pipeline.py` | Orchestrates Writer → Editor → export |
-| `src/agentic_writer/agents/` | Pydantic AI writer & editor agents |
-| `src/agentic_writer/api/app.py` | FastAPI app, CORS, REST + `/agui` |
-| `src/agentic_writer/api/studio.py` | Studio agent + tools (`run_story_generation`) |
-| `skills/story-writer/`, `skills/manuscript-editor/`, `skills/print-layout/` | Prompt/skill packs loaded by agents & docx |
-| `web/components/` | Studio UI (chat, progress, manuscript, PDF tabs) |
-| `web/lib/copilotkit-runtime.ts` | CopilotKit v2 handler → `HttpAgent` → `/agui` |
-| `web/lib/studio-agent-runner.ts` | Thread list/messages + disk persistence |
-| `specs/bdd/`, `tests/bdd/` | Gherkin scenarios + pytest-bdd |
-| `NewBooks/output/` | Generated stories (gitignored) |
-| `.data/studio-threads/` | Studio chat history (gitignored) |
-| `docs/` | Static GitHub Pages landing |
-
-### Deployment (C4Deployment)
-
-GitHub Pages hosts static content only; the live Studio needs Node + Python hosts (or containers).
+### Deployment
 
 ```mermaid
 C4Deployment
@@ -244,48 +215,37 @@ C4Deployment
   Rel(api_cloud, disk_cloud, "read and write")
 ```
 
-| Surface | Host | Notes |
-|---------|------|--------|
-| Landing | **GitHub Pages** (`docs/`) | Static overview only |
-| Studio UI | **Node host** (local `npm run dev`, or Vercel/Netlify) | Needs `/api/copilotkit` API routes |
-| Agent API | **Python host** (local `serve`, or container on Render/Fly/etc.) | `OPENAI_API_KEY` stays server-side |
-| Full stack on Pages alone | Not supported | Pages cannot run FastAPI or Next.js server routes |
+GitHub Pages = static `docs/` only. Live Studio needs **Node** (web) + **Python** (API); `OPENAI_API_KEY` stays on the API host.
+
+</details>
+
+### Key paths
+
+| Path | Role |
+|------|------|
+| `src/agentic_writer/` | CLI, pipeline, agents, FastAPI studio |
+| `web/` | Next.js Studio, CopilotKit runtime |
+| `skills/` | story-writer, manuscript-editor, print-layout |
+| `specs/bdd/`, `tests/bdd/` | Gherkin + pytest-bdd |
+| `NewBooks/output/` | Generated stories (gitignored) |
+| `.data/studio-threads/` | Studio chat history (gitignored) |
 
 ---
 
 ## Why this stack
 
-### CopilotKit, AG-UI & generative UI
+**CopilotKit + AG-UI** — Standard SSE agent wire; generative UI via `StudioState` (`STATE_SNAPSHOT` / `STATE_DELTA`); Python agent + Next.js UI; persisted threads; progress streaming during long tools.
 
-| Benefit | What you get |
-|---------|----------------|
-| **Standard agent ↔ UI wire** | AG-UI events (SSE) instead of ad-hoc WebSockets or custom JSON for every screen. |
-| **Generative UI, not chat-only** | Pipeline steps, slug, errors, and deliverables live in **shared agent state**—the React tree reacts to `STATE_DELTA` while tools run. |
-| **Backend freedom** | Python agent (Pydantic AI + skills) stays in FastAPI; the UI stays in Next.js via `HttpAgent`—clear split, same contract as other AG-UI clients. |
-| **Threads & replay** | CopilotKit v2 multi-route API + on-disk persistence: resume conversations and reconnect without re-prompting from scratch. |
-| **Progress on long tools** | `StudioProgressBridge` streams step updates during `run_story_generation`, so the UI does not freeze until the tool returns. |
-| **Faster product iteration** | CopilotKit chat, suggestions, and runtime plumbing are off-the-shelf; you focus on story tools and `StudioState`. |
-
-### BDD (Gherkin + pytest-bdd)
-
-Specs live in [`specs/bdd/`](specs/bdd/)—executable contracts, not slide-ware.
-
-| Benefit | What you get |
-|---------|----------------|
-| **Shared language** | Product-style scenarios (`Given` / `When` / `Then`) that devs, QA, and future-you can read without spelunking test code. |
-| **CI without OpenAI** | Markers `bootstrap`, `unit`, `integration`, `ui` cover doctor, CLI, pipeline, export, API, and threads with **mocked agents**—cheap, deterministic PR checks. |
-| **Slice-aligned coverage** | One feature file per concern (env, CLI, pipeline, export, Studio API, chat persistence, optional `e2e`). |
-| **Regression safety** | Changes to brief parsing, artefact paths, print-layout cleanup, or AG-UI state break a named scenario—not a vague “tests failed”. |
-| **Living documentation** | Scenarios document *observable* behaviour (files on disk, HTTP status, thread list); see [`specs/bdd/README.md`](specs/bdd/README.md). |
+**BDD** — Executable specs in [`specs/bdd/`](specs/bdd/); CI markers (`bootstrap`, `unit`, `integration`, `ui`) run without OpenAI; one feature file per slice.
 
 ---
 
 ## Prerequisites
 
-- **uv** + Python ≥ 3.10  
-- **Node.js** ≥ 18 (docx export + Studio)  
-- **OpenAI API key** (generate / Studio; not needed for mocked tests)  
-- **LibreOffice** (`soffice`) — only for PDF export (skip with `--md-only`)
+- **uv** + Python ≥ 3.10
+- **Node.js** ≥ 18
+- **OpenAI API key** (generate / Studio; not for mocked tests)
+- **LibreOffice** (`soffice`) — PDF only (or `--md-only`)
 
 ---
 
@@ -294,43 +254,20 @@ Specs live in [`specs/bdd/`](specs/bdd/)—executable contracts, not slide-ware.
 ```bash
 cd Agentic-writer
 uv sync --all-extras
-npm install              # docx export (repo root)
-cd web && npm install && cd ..
+npm install && cd web && npm install && cd ..
 cp .env.example .env     # set OPENAI_API_KEY
-uv run agentic-writer doctor   # must exit 0
+uv run agentic-writer doctor
 ```
 
 ---
 
 ## Configuration
 
-### Root `.env`
-
-| Variable | Required | Default / notes |
-|----------|----------|-----------------|
-| `OPENAI_API_KEY` | yes (live runs) | — |
-| `OPENAI_MODEL` | no | `openai-chat:gpt-4o` |
-| `LOG_LEVEL` | no | `INFO` |
-| `AGENTIC_WRITER_OUTPUT` | no | see `config.toml` → `NewBooks/output/` |
-| `AGENTIC_WRITER_THREADS_DIR` | no | `.data/studio-threads/` (Studio chats) |
-
-### `config.toml`
-
-```toml
-[defaults]
-format = "nouvelle"   # flash | nouvelle | novella
-lang = "fr"
-
-[output]
-root = "../output"
-```
-
-### Studio — `web/.env.local`
-
-```bash
-NEXT_PUBLIC_AGENTIC_WRITER_API=http://127.0.0.1:8000
-AGENTIC_WRITER_AGUI_URL=http://127.0.0.1:8000/agui
-```
+| File | Purpose |
+|------|---------|
+| `.env` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `AGENTIC_WRITER_OUTPUT`, `AGENTIC_WRITER_THREADS_DIR` |
+| `config.toml` | Default `format`, `lang`; `output.root` → `NewBooks/output/` |
+| `web/.env.local` | `NEXT_PUBLIC_AGENTIC_WRITER_API`, `AGENTIC_WRITER_AGUI_URL` (default `http://127.0.0.1:8000`) |
 
 ---
 
@@ -345,11 +282,11 @@ uv run agentic-writer generate <slug> \
 
 | Flag | Purpose |
 |------|---------|
-| `--brief path.yaml` | YAML brief instead of inline slug/pitch |
-| `--md-only` | Stop after markdown (no docx/pdf) |
-| `-v` / `-q` | DEBUG / WARNING+ logs |
+| `--brief path.yaml` | YAML brief |
+| `--md-only` | Skip docx/pdf |
+| `-v` / `-q` | DEBUG / WARNING logs |
 
-**Output:** `NewBooks/output/<slug>/` — `twist_sheet.json`, `draft_manuscript.md`, `review.md`, `manuscript_final.md`, optional `<slug>.docx` & `.pdf`.
+**Output:** `NewBooks/output/<slug>/` — markdown artefacts plus optional docx/pdf.
 
 ```bash
 uv run agentic-writer generate --brief examples/briefs/flash-smoke.yaml --md-only
@@ -359,58 +296,28 @@ uv run agentic-writer generate --brief examples/briefs/flash-smoke.yaml --md-onl
 
 ## Run — Studio
 
-**Terminal 1 — API**
-
 ```bash
+# Terminal 1
 uv run agentic-writer serve --port 8000
-```
 
-**Terminal 2 — UI**
-
-```bash
+# Terminal 2
 cd web && npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Use **History** in the header to resume past chats (stored under `.data/studio-threads/`).
+Open [http://localhost:3000](http://localhost:3000). **History** resumes chats from `.data/studio-threads/`.
 
 ---
 
-## Run — tests
-
-From `Agentic-writer/`:
+## Tests
 
 ```bash
-# CI suite (no OpenAI)
-uv run pytest -m "bootstrap or unit or integration or ui"
-
-# All Gherkin BDD specs
-uv run pytest tests/bdd/
-
-# Studio thread persistence (needs npx)
-uv run pytest tests/bdd/test_studio_threads.py -m ui
-
-# Live API (needs OPENAI_API_KEY)
-uv run pytest -m e2e
+uv run pytest -m "bootstrap or unit or integration or ui"   # CI, no OpenAI
+uv run pytest tests/bdd/                                    # all Gherkin
+uv run pytest -m e2e                                        # live API
+cd web && npm run build                                     # optional
 ```
 
-```bash
-cd web && npm run build   # optional frontend check
-```
-
-BDD details: [`specs/bdd/README.md`](specs/bdd/README.md).
-
----
-
-## Layout
-
-See [Architecture](#architecture) for the full component map. Top level:
-
-```text
-Agentic-writer/     CLI, pipeline, skills, tests
-web/                Studio (Next.js)
-NewBooks/output/    generated stories (gitignored)
-.data/studio-threads/   Studio chat history (gitignored)
-```
+Details: [`specs/bdd/README.md`](specs/bdd/README.md).
 
 ---
 
@@ -418,9 +325,9 @@ NewBooks/output/    generated stories (gitignored)
 
 | Issue | Check |
 |-------|--------|
-| `doctor` fails | `skills/story-writer/SKILL.md`, `npm install` at root |
-| No docx/pdf | Node + `docx` package; or use `--md-only` |
+| `doctor` fails | `skills/story-writer/SKILL.md`, root `npm install` |
+| No docx/pdf | Node + `docx`; or `--md-only` |
 | No PDF | LibreOffice / `soffice` |
-| Studio empty / errors | `serve` running, `OPENAI_API_KEY`, `web/.env.local` URLs |
+| Studio errors | `serve` up, `OPENAI_API_KEY`, `web/.env.local` |
 
-Further design notes: [`../doc/agentic-writer/plan.md`](../doc/agentic-writer/plan.md).
+Design notes: [`../doc/agentic-writer/plan.md`](../doc/agentic-writer/plan.md).

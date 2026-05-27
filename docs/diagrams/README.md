@@ -1,17 +1,15 @@
 # Architecture diagrams (Mermaid C4)
 
-Source files for the README architecture section. The **rendered** diagrams live in the root [`README.md`](../../README.md) as fenced `mermaid` blocks — GitHub renders those automatically.
+Editable sources for the [README](../../README.md) architecture section. Copy changes into the matching fenced `mermaid` block after editing.
 
-| File | C4 level |
-|------|----------|
-| `01-system-context.mmd` | Context |
-| `02-containers.mmd` | Container |
-| `03-studio-api-components.mmd` | Component |
-| `04-pipeline-components.mmd` | Component |
-| `05-studio-dynamic.mmd` | Dynamic |
-| `06-pipeline-steps-dynamic.mmd` | Dynamic |
+| File | Diagram |
+|------|---------|
+| `01-system-context.mmd` | System context |
+| `02-containers.mmd` | Containers |
+| `03-studio-api-components.mmd` | Studio API components |
+| `04-pipeline-components.mmd` | Story pipeline components |
+| `05-studio-dynamic.mmd` | Studio generate flow |
+| `06-pipeline-steps-dynamic.mmd` | Pipeline steps |
 | `07-deployment.mmd` | Deployment |
 
-After editing a `.mmd` file, copy its contents into the matching mermaid fenced block in `README.md` (keep the first line, e.g. `C4Context`, unchanged).
-
-Validate locally (optional): `npx @mermaid-js/mermaid-cli@11 -i 01-system-context.mmd -o /tmp/test.png`
+Validate: `npx @mermaid-js/mermaid-cli@11 -i 01-system-context.mmd -o /tmp/test.png`

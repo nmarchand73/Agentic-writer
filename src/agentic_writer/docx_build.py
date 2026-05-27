@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 from agentic_writer.cleanup import cleanup_work_dir
+from agentic_writer.export_names import export_base_name
 from agentic_writer.config import (
     BUILD_STORY_SCRIPT,
     GENERATE_FROM_MD_SCRIPT,
@@ -15,12 +16,24 @@ from agentic_writer.config import (
     PROJECT_ROOT,
 )
 from agentic_writer.log_config import get_logger
+from agentic_writer.models import StoryFormat
 from agentic_writer.pipeline import PipelineError
 
 log = get_logger("docx")
 
-def build_docx(slug: str, work_dir: Path, manuscript_md: str) -> None:
-    """Write manuscript_final.md, copy print-layout generator, invoke build_story.sh."""
+
+def build_docx(
+    slug: str,
+    work_dir: Path,
+    manuscript_md: str,
+    *,
+    format: StoryFormat = "nouvelle",
+) -> str:
+    """Write manuscript_final.md, copy print-layout generator, invoke build_story.sh.
+
+    Returns the export base name used for .docx / .pdf (``{slug}-{format}``).
+    """
+    base_name = export_base_name(slug, format)
     work_dir.mkdir(parents=True, exist_ok=True)
     md_path = work_dir / "manuscript_final.md"
     md_path.write_text(manuscript_md, encoding="utf-8")
@@ -52,9 +65,9 @@ def build_docx(slug: str, work_dir: Path, manuscript_md: str) -> None:
         else node_path
     )
 
-    log.info("build_story.sh {} → {}", slug, work_dir.resolve())
+    log.info("build_story.sh {} → {}", base_name, work_dir.resolve())
     result = subprocess.run(
-        ["bash", str(BUILD_STORY_SCRIPT), slug, str(generate_js)],
+        ["bash", str(BUILD_STORY_SCRIPT), base_name, str(generate_js)],
         env=env,
         capture_output=True,
         text=True,
@@ -71,4 +84,5 @@ def build_docx(slug: str, work_dir: Path, manuscript_md: str) -> None:
             f"build_story.sh failed ({result.returncode}): {result.stderr or result.stdout}"
         )
     log.debug("build_story.sh exit 0")
-    cleanup_work_dir(slug, work_dir)
+    cleanup_work_dir(base_name, work_dir)
+    return base_name

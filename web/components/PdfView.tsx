@@ -1,10 +1,10 @@
 "use client";
 
-import { pdfUrl } from "../lib/studio-api";
+import { exportBaseName, pdfUrl } from "../lib/studio-api";
 
-export function PdfView({ slug }: { slug: string }) {
-  const src = pdfUrl(slug);
-  const downloadName = `${slug}.pdf`;
+export function PdfView({ slug, format }: { slug: string; format?: string }) {
+  const src = pdfUrl(slug, format);
+  const downloadName = format ? `${exportBaseName(slug, format)}.pdf` : `${slug}.pdf`;
 
   return (
     <section

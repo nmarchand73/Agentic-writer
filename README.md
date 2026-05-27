@@ -208,7 +208,7 @@ C4Dynamic
 | Chapitres | `chapters/*.md`, `draft_manuscript.md` (assemblé) |
 | Editor | `review.md`, `manuscript_final.md` |
 | Auditeur | `audit_report.md` |
-| Print | `<slug>.docx`, `<slug>.pdf` (omit with `--md-only`) |
+| Print | `<slug>-<format>.docx`, `<slug>-<format>.pdf` (e.g. `signal-77-flash.pdf`; omit with `--md-only`) |
 
 ### Deployment
 

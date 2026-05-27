@@ -37,7 +37,7 @@ Variables : `DOCX_OFFICE_SCRIPTS` → `NewBooks/.cursor/skills/_shared/story-bui
 
 ## Fichiers livrés vs temporaires
 
-**Conservés** dans `output/{slug}/` : `twist_sheet.json`, `draft_manuscript.md`, `review.md`, `manuscript_final.md`, `{slug}.docx`, `{slug}.pdf`.
+**Conservés** dans `output/{slug}/` : `twist_sheet.json`, `draft_manuscript.md`, `review.md`, `manuscript_final.md`, `{slug}-{format}.docx`, `{slug}-{format}.pdf`.
 
 **Supprimés automatiquement** en fin de pipeline : `generate.js`, `{slug}_unpacked/`, `{slug}_print.html`, `.~lock*`.
 
@@ -45,5 +45,5 @@ Variables : `DOCX_OFFICE_SCRIPTS` → `NewBooks/.cursor/skills/_shared/story-bui
 
 - [ ] `references/modern_layout_guide.md` respecté
 - [ ] `build_story.sh` terminé sans erreur (validate.py OK)
-- [ ] `{slug}.docx` et `{slug}.pdf` dans le dossier de travail
+- [ ] `{slug}-{format}.docx` et `{slug}-{format}.pdf` dans le dossier de travail
 - [ ] PDF relu visuellement (marges, veuves, folios)

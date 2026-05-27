@@ -7,6 +7,12 @@ export function manuscriptUrl(slug: string): string {
   return `${STUDIO_API_BASE}/manuscript/${encodeURIComponent(slug)}`;
 }
 
-export function pdfUrl(slug: string): string {
-  return `${STUDIO_API_BASE}/pdf/${encodeURIComponent(slug)}`;
+export function exportBaseName(slug: string, format: string): string {
+  return `${slug}-${format}`;
+}
+
+export function pdfUrl(slug: string, format?: string): string {
+  const path = `${STUDIO_API_BASE}/pdf/${encodeURIComponent(slug)}`;
+  if (!format) return path;
+  return `${path}?format=${encodeURIComponent(format)}`;
 }

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Union
 
 from agentic_writer.cleanup import cleanup_work_dir
+from agentic_writer.export_names import export_base_name
 from agentic_writer.editorial_guards import (
     check_manuscript_length,
     check_twist_sheet,
@@ -396,8 +397,15 @@ async def run_pipeline(
 
     if not md_only:
 
+        export_base = export_base_name(brief.slug, brief.format)
+
         async def _print() -> None:
-            build_docx(brief.slug, work, edited_holder["out"].manuscript_corrected)
+            build_docx(
+                brief.slug,
+                work,
+                edited_holder["out"].manuscript_corrected,
+                format=brief.format,
+            )
 
         await _run_step(
             IDX_PRINT,
@@ -406,11 +414,16 @@ async def run_pipeline(
             on_step_start=on_step_start,
             on_step_complete=on_step_complete,
             work=_print,
-            done_detail=f"{work}/{brief.slug}.docx + .pdf",
+            done_detail=f"{work}/{export_base}.docx + .pdf",
         )
 
     async def _done() -> None:
-        cleanup_work_dir(brief.slug, work)
+        base = (
+            export_base_name(brief.slug, brief.format)
+            if not md_only
+            else brief.slug
+        )
+        cleanup_work_dir(base, work)
 
     await _run_step(
         idx_delivery,

@@ -54,9 +54,11 @@ export function FetchErrorBanner({ detail }: { detail: string }) {
 export function DeliveryCard({
   slug,
   outputDir,
+  pdfHref,
 }: {
   slug?: string;
   outputDir: string;
+  pdfHref?: string;
 }) {
   return (
     <div className="studio-card studio-card-success overflow-hidden">
@@ -83,6 +85,21 @@ export function DeliveryCard({
           </p>
         )}
         <p className="font-mono text-xs text-[var(--studio-muted)] break-all">{outputDir}</p>
+        {pdfHref && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <a
+              href={pdfHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="studio-btn studio-btn-primary text-xs"
+            >
+              Ouvrir le PDF ↗
+            </a>
+            <a href={pdfHref} download className="studio-btn studio-btn-ghost text-xs">
+              Télécharger PDF
+            </a>
+          </div>
+        )}
         <div className="flex flex-wrap gap-1.5 pt-1">
           {["twist_sheet.json", "draft", "review", "final.md", "docx", "pdf"].map((f) => (
             <span key={f} className="studio-file-chip">

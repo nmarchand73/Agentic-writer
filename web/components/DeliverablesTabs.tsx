@@ -8,26 +8,37 @@ type Tab = "md" | "pdf";
 
 export function DeliverablesTabs({
   slug,
+  format,
   markdown,
   outputDir,
-  pdfAvailable,
+  pdfUrl: pdfHref,
+  showPdfUi,
+  pdfChecking,
 }: {
   slug?: string;
+  format?: string;
   markdown: string;
   outputDir?: string | null;
-  pdfAvailable: boolean;
+  pdfUrl?: string | null;
+  showPdfUi: boolean;
+  pdfChecking?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("md");
 
   useEffect(() => {
-    if (pdfAvailable) {
+    if (showPdfUi && pdfHref) {
       setTab("pdf");
     }
-  }, [pdfAvailable]);
+  }, [showPdfUi, pdfHref]);
 
-  if (!pdfAvailable) {
+  if (!showPdfUi || !pdfHref || !slug) {
     return (
-      <ManuscriptView markdown={markdown} slug={slug} outputDir={outputDir} />
+      <ManuscriptView
+        markdown={markdown}
+        slug={slug}
+        outputDir={outputDir}
+        pdfHref={pdfHref ?? undefined}
+      />
     );
   }
 
@@ -58,10 +69,21 @@ export function DeliverablesTabs({
         </button>
       </div>
 
-      {tab === "pdf" && slug ? (
-        <PdfView slug={slug} />
+      {pdfChecking && tab === "pdf" && (
+        <p className="text-xs text-center text-[var(--studio-muted)] py-1">
+          Vérification du PDF…
+        </p>
+      )}
+
+      {tab === "pdf" ? (
+        <PdfView slug={slug} format={format} />
       ) : (
-        <ManuscriptView markdown={markdown} slug={slug} outputDir={outputDir} />
+        <ManuscriptView
+          markdown={markdown}
+          slug={slug}
+          outputDir={outputDir}
+          pdfHref={pdfHref}
+        />
       )}
     </div>
   );

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 from http import HTTPStatus
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import ValidationError
@@ -14,6 +15,8 @@ from starlette.responses import Response
 
 from agentic_writer.api.studio import create_studio_agent
 from agentic_writer.config import output_dir
+from agentic_writer.export_names import resolve_export_pdf_path
+from agentic_writer.models import StoryFormat
 from agentic_writer.api.studio_progress import (
     StudioProgressBridge,
     reset_studio_progress_bridge,
@@ -56,17 +59,49 @@ def create_app() -> FastAPI:
             media_type="text/markdown; charset=utf-8",
         )
 
-    @app.get("/pdf/{slug}")
-    async def get_pdf(slug: str) -> FileResponse:
-        """PDF imprimable pour prévisualisation inline dans le Studio."""
-        path = output_dir(slug) / f"{slug}.pdf"
-        if not path.is_file():
+    def _pdf_path_or_404(slug: str, format: StoryFormat | None) -> Path:
+        work = output_dir(slug)
+        path = resolve_export_pdf_path(work, slug, format)
+        if path is None:
             raise HTTPException(status_code=404, detail="pdf introuvable")
+        return path
+
+    @app.get("/pdf/{slug}")
+    async def get_pdf(
+        slug: str,
+        format: StoryFormat | None = Query(
+            None,
+            description="Format récit (flash, nouvelle, novella) pour {slug}-{format}.pdf",
+        ),
+    ) -> FileResponse:
+        """PDF imprimable pour prévisualisation inline dans le Studio."""
+        path = _pdf_path_or_404(slug, format)
+        filename = path.name
         return FileResponse(
             path,
             media_type="application/pdf",
-            filename=f"{slug}.pdf",
-            headers={"Content-Disposition": f'inline; filename="{slug}.pdf"'},
+            filename=filename,
+            headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        )
+
+    @app.head("/pdf/{slug}", response_model=None)
+    async def head_pdf(
+        slug: str,
+        format: StoryFormat | None = Query(
+            None,
+            description="Format récit (flash, nouvelle, novella) pour {slug}-{format}.pdf",
+        ),
+    ) -> Response:
+        """Existence check for Studio UI (GET also works; HEAD avoids full download)."""
+        path = _pdf_path_or_404(slug, format)
+        filename = path.name
+        return Response(
+            status_code=200,
+            headers={
+                "Content-Type": "application/pdf",
+                "Content-Length": str(path.stat().st_size),
+                "Content-Disposition": f'inline; filename="{filename}"',
+            },
         )
 
     @app.post("/agui")

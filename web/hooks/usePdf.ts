@@ -14,9 +14,22 @@ function hadPrintStep(state: StudioAgentState): boolean {
   return (
     state.steps?.some((s) => {
       const d = s.description.toLowerCase();
-      return d.includes("print") || d.includes("docx") || d.includes("pdf");
+      return (
+        d.includes("print") ||
+        d.includes("docx") ||
+        d.includes("pdf") ||
+        d.includes("layout")
+      );
     }) ?? false
   );
+}
+
+/** Pipeline was run with docx/pdf export (not markdown-only). */
+export function expectsPdfExport(state: StudioAgentState): boolean {
+  if (state.md_only) return false;
+  if (hadPrintStep(state)) return true;
+  if (state.output_dir) return true;
+  return false;
 }
 
 export function usePdf(agentState: StudioAgentState) {
@@ -24,12 +37,14 @@ export function usePdf(agentState: StudioAgentState) {
   const [checking, setChecking] = useState(false);
 
   const slug = agentState.slug;
+  const storyFormat = agentState.format;
+  const url = slug ? pdfUrl(slug, storyFormat) : null;
+  const exportExpected = expectsPdfExport(agentState);
+
   const ready =
     Boolean(slug) &&
-    hadPrintStep(agentState) &&
+    exportExpected &&
     (isPipelineComplete(agentState) || Boolean(agentState.output_dir));
-
-  const url = slug ? pdfUrl(slug) : null;
 
   useEffect(() => {
     if (!ready || !slug || !url) {
@@ -60,7 +75,16 @@ export function usePdf(agentState: StudioAgentState) {
     return () => {
       cancelled = true;
     };
-  }, [ready, slug, url]);
+  }, [ready, slug, storyFormat, url]);
 
-  return { url, available, checking, ready: ready && hadPrintStep(agentState) };
+  const showPdfUi = exportExpected && Boolean(slug) && (available || ready);
+
+  return {
+    url,
+    available,
+    checking,
+    ready,
+    exportExpected,
+    showPdfUi,
+  };
 }

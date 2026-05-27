@@ -57,12 +57,53 @@ async def test_pdf_endpoint(tmp_path, monkeypatch):
     )
     work = tmp_path / "hangar-scelle"
     work.mkdir()
-    (work / "hangar-scelle.pdf").write_bytes(b"%PDF-1.4 test")
+    (work / "hangar-scelle-nouvelle.pdf").write_bytes(b"%PDF-1.4 test")
 
     app = create_app()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/pdf/hangar-scelle")
+        resp = await client.get("/pdf/hangar-scelle", params={"format": "nouvelle"})
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("application/pdf")
+    assert resp.headers.get("content-disposition", "").find("hangar-scelle-nouvelle.pdf") >= 0
+    assert b"%PDF" in resp.content
+
+
+@pytest.mark.integration
+@pytest.mark.ui
+@pytest.mark.asyncio
+async def test_pdf_endpoint_head(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "agentic_writer.api.app.output_dir",
+        lambda slug: tmp_path / slug,
+    )
+    work = tmp_path / "head-slug"
+    work.mkdir()
+    (work / "head-slug-flash.pdf").write_bytes(b"%PDF-1.4 test")
+
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.head("/pdf/head-slug", params={"format": "flash"})
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/pdf")
+
+
+@pytest.mark.integration
+@pytest.mark.ui
+@pytest.mark.asyncio
+async def test_pdf_endpoint_legacy_filename(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "agentic_writer.api.app.output_dir",
+        lambda slug: tmp_path / slug,
+    )
+    work = tmp_path / "legacy-slug"
+    work.mkdir()
+    (work / "legacy-slug.pdf").write_bytes(b"%PDF-1.4 legacy")
+
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/pdf/legacy-slug", params={"format": "flash"})
+    assert resp.status_code == 200
     assert b"%PDF" in resp.content

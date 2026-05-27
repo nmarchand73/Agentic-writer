@@ -17,10 +17,10 @@ def test_build_docx_invokes_build_story(tmp_path):
 
     with patch("agentic_writer.docx_build.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-        build_docx("export-integ", work, "# Hi\n\nText.")
+        build_docx("export-integ", work, "# Hi\n\nText.", format="flash")
         assert mock_run.called
         args = mock_run.call_args[0][0]
-        assert "export-integ" in args
+        assert "export-integ-flash" in args
 
 
 @pytest.mark.integration

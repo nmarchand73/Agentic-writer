@@ -6,10 +6,12 @@ export function ManuscriptView({
   markdown,
   slug,
   outputDir,
+  pdfHref,
 }: {
   markdown: string;
   slug?: string;
   outputDir?: string | null;
+  pdfHref?: string;
 }) {
   const wordApprox = markdown.trim().split(/\s+/).length;
 
@@ -34,6 +36,16 @@ export function ManuscriptView({
           <div className="flex flex-wrap gap-1.5 items-center">
             <span className="studio-file-chip">~{wordApprox.toLocaleString("fr-FR")} mots</span>
             {slug && <span className="studio-file-chip font-mono">{slug}</span>}
+            {pdfHref && (
+              <a
+                href={pdfHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="studio-btn studio-btn-primary text-xs py-1 px-2.5"
+              >
+                PDF ↗
+              </a>
+            )}
           </div>
         </div>
         {outputDir && (

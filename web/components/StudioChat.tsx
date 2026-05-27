@@ -73,8 +73,13 @@ function ChatInner({ threadId, onSelectThread, onNewThread }: ChatInnerProps) {
   const agentState = useHydratedStudioState(threadId, liveState, agent);
   const steps = agentState.steps;
   const { markdown, loading, fetchError, ready } = useManuscript(agentState);
-  const { available: pdfAvailable, checking: pdfChecking, ready: pdfReady } =
-    usePdf(agentState);
+  const {
+    url: pdfHref,
+    available: pdfAvailable,
+    checking: pdfChecking,
+    ready: pdfReady,
+    showPdfUi,
+  } = usePdf(agentState);
 
   useConfigureSuggestions({
     suggestions: [...STUDIO_SUGGESTIONS],
@@ -109,7 +114,11 @@ function ChatInner({ threadId, onSelectThread, onNewThread }: ChatInnerProps) {
           {agentState.error && <ErrorBanner message={agentState.error} />}
 
           {showDelivery && (
-            <DeliveryCard slug={agentState.slug} outputDir={agentState.output_dir!} />
+            <DeliveryCard
+              slug={agentState.slug}
+              outputDir={agentState.output_dir!}
+              pdfHref={showPdfUi ? pdfHref ?? undefined : undefined}
+            />
           )}
 
           {ready && loading && !markdown && <LoadingManuscript />}
@@ -126,8 +135,11 @@ function ChatInner({ threadId, onSelectThread, onNewThread }: ChatInnerProps) {
             <DeliverablesTabs
               markdown={markdown!}
               slug={agentState.slug}
+              format={agentState.format}
               outputDir={agentState.output_dir}
-              pdfAvailable={pdfAvailable}
+              pdfUrl={pdfHref}
+              showPdfUi={showPdfUi}
+              pdfChecking={pdfChecking}
             />
           )}
         </div>

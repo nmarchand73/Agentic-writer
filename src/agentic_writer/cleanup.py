@@ -10,13 +10,16 @@ from agentic_writer.log_config import get_logger
 log = get_logger("cleanup")
 
 
-def cleanup_work_dir(slug: str, work_dir: Path) -> list[str]:
+def cleanup_work_dir(export_base: str, work_dir: Path) -> list[str]:
     """Delete build leftovers; keep twist/draft/review/final md and docx/pdf.
+
+    ``export_base`` is the print base name (e.g. ``signal-77-flash``), used for
+    temp paths ``{export_base}_unpacked`` and ``{export_base}_print.html``.
 
     Removes:
     - generate.js (copy of the layout generator)
-    - {slug}_unpacked/ (OOXML unpack dir if build_story aborted early)
-    - {slug}_print.html
+    - {export_base}_unpacked/ (OOXML unpack dir if build_story aborted early)
+    - {export_base}_print.html
     - LibreOffice lock files (.~lock*)
     """
     work = Path(work_dir)
@@ -26,8 +29,8 @@ def cleanup_work_dir(slug: str, work_dir: Path) -> list[str]:
     removed: list[str] = []
     targets: list[Path] = [
         work / "generate.js",
-        work / f"{slug}_unpacked",
-        work / f"{slug}_print.html",
+        work / f"{export_base}_unpacked",
+        work / f"{export_base}_print.html",
         *work.glob(".~lock*"),
     ]
 

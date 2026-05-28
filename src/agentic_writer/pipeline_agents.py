@@ -21,6 +21,7 @@ async def run_agent_tracked(
     ledger: UsageLedger,
     label: str,
     model: str,
+    retries: int = 3,
     on_usage: Callable[[UsageLedger], Awaitable[None] | None] | None = None,
 ) -> Any:
     """Call ``agent.run``, log progressive cost, return result."""
@@ -30,7 +31,7 @@ async def run_agent_tracked(
     #
     # Note: tests use lightweight mock agents whose `run()` doesn't accept kwargs.
     try:
-        result = await agent.run(prompt, model=model, retries=3)
+        result = await agent.run(prompt, model=model, retries=retries)
     except TypeError:
         result = await agent.run(prompt)
     detail = ledger.record(label, model, result.usage)

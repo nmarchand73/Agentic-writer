@@ -25,6 +25,8 @@ ARCHITECT_INSTRUCTIONS = dedent("""
     ## Plan
     - Nombre de chapitres et `target_words` **exactement** comme dans le message utilisateur.
     - Par chapitre : `title` évocateur, `beat` (2–4 phrases d'intention), `hook` de fin explicite.
+    - Chaque entrée `chapters[]` doit contenir **obligatoirement** : `index`, `title`, `beat`, `hook`, `target_words`.
+      Ne jamais omettre `target_words` (sinon validation échoue).
     - Si prologue requis : `prologue_beat` (beat du prologue choc 200–400 mots), sans rédiger le prologue.
     - Arc clair : installation → montée → mid-twist → twist final → coda.
 

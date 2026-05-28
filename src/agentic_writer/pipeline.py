@@ -287,6 +287,7 @@ async def run_pipeline(
             ledger=ledger,
             label="architecte",
             model=settings["model_architect"],
+            retries=6,
             on_usage=on_usage,
         )
         blueprint_holder["bp"] = normalize_blueprint_chapters(

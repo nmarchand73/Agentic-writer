@@ -24,7 +24,15 @@ async def run_agent_tracked(
     on_usage: Callable[[UsageLedger], Awaitable[None] | None] | None = None,
 ) -> Any:
     """Call ``agent.run``, log progressive cost, return result."""
-    result = await agent.run(prompt)
+    # Always pass the resolved model id so the actual run matches what we track/log.
+    # Also cap structured-output retries to avoid long "silent" loops where the model
+    # keeps returning invalid output and the UI appears stuck.
+    #
+    # Note: tests use lightweight mock agents whose `run()` doesn't accept kwargs.
+    try:
+        result = await agent.run(prompt, model=model, retries=3)
+    except TypeError:
+        result = await agent.run(prompt)
     detail = ledger.record(label, model, result.usage)
     log.info("Coût cumulé — {}", detail)
     if on_usage is not None:

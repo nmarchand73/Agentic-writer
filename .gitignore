@@ -12,3 +12,5 @@ output/
 .data/
 dist/
 *.egg-info/
+agentic-writer.log
+web/tsconfig.tsbuildinfo

@@ -62,7 +62,7 @@ def editorial_mock_agents(
     writer_fixture: str = "writer_flash.json",
     editor_fixture: str = "editor_flash.json",
 ) -> dict[str, MockAgent]:
-    body = chapter_body or " ".join(["mot"] * 700)
+    body = chapter_body or " ".join(["mot"] * 900)
     editor_data = json.loads((FIXTURES / editor_fixture).read_text(encoding="utf-8"))
     return {
         "architect": MockAgent(

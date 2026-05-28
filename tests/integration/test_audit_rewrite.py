@@ -60,7 +60,7 @@ async def test_audit_rewrite_prompts_contain_verdict(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTIC_WRITER_OUTPUT", str(tmp_path))
     monkeypatch.setenv("AGENTIC_WRITER_MAX_AUDIT_RETRIES", "2")
 
-    body = " ".join(["mot"] * 700)
+    body = " ".join(["mot"] * 900)
     editor_data = json.loads((FIXTURES / "editor_flash.json").read_text(encoding="utf-8"))
     editor_agent = MockAgent(EditorResult.model_validate(editor_data))
     chapter_agent = MockAgent(ChapterWriterResult(content=body))

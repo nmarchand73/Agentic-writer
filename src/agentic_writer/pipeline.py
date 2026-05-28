@@ -105,6 +105,54 @@ async def _write_chapters(
 ) -> tuple[list[ChapterDraft], str | None]:
     from agentic_writer.agents.chapter_writer import ChapterWriterResult
 
+    def _word_count(text: str) -> int:
+        return len(text.strip().split()) if text and text.strip() else 0
+
+    async def _generate_with_min_words(
+        *,
+        prompt: str,
+        label: str,
+        model: str,
+        min_words: int,
+        max_attempts: int = 2,
+    ) -> str:
+        last_text = ""
+        for attempt in range(1, max_attempts + 1):
+            tightened = prompt
+            if attempt > 1:
+                tightened = (
+                    prompt
+                    + "\n\n"
+                    + "## IMPORTANT — longueur (non négociable)\n"
+                    + f"- Ta sortie doit faire **au moins {min_words} mots**.\n"
+                    + "- Si tu ne peux pas atteindre la longueur, développe avec scènes/dialogues concrets.\n"
+                    + "- Ne termine pas par un résumé ou 'Fin du chapitre'.\n"
+                    + "- Retourne uniquement un JSON ChapterWriterResult: {\"content\": \"...\"}\n"
+                )
+            result = await run_agent_tracked(
+                chapter_agent,
+                tightened,
+                ledger=ledger,
+                label=f"{label} (tentative {attempt})" if attempt > 1 else label,
+                model=model,
+                on_usage=on_usage,
+            )
+            text = result.output.content
+            last_text = text
+            wc = _word_count(text)
+            if wc >= min_words:
+                return text
+            log.warning(
+                "Chapitre trop court — {}: {} mots (min {}). Nouvelle tentative…",
+                label,
+                wc,
+                min_words,
+            )
+        raise PipelineError(
+            f"{label} trop court après {max_attempts} tentatives: "
+            f"{_word_count(last_text)} mots (min {min_words})."
+        )
+
     drafts_by_index: dict[int, ChapterDraft] = {}
     existing_by_index = {d.index: d for d in (existing_drafts or [])}
     partial = rewrite_indices is not None
@@ -115,15 +163,12 @@ async def _write_chapters(
     total = len(blueprint.chapters)
 
     if plan.include_prologue and blueprint.prologue_beat and not partial:
-        prologue_result = await run_agent_tracked(
-            chapter_agent,
-            build_prologue_prompt(brief, blueprint),
-            ledger=ledger,
+        prologue_text = await _generate_with_min_words(
+            prompt=build_prologue_prompt(brief, blueprint),
             label="prologue",
             model=chapter_model,
-            on_usage=on_usage,
+            min_words=150,
         )
-        prologue_text = prologue_result.output.content
         previous = prologue_text
 
     for chapter in blueprint.chapters:
@@ -147,15 +192,13 @@ async def _write_chapters(
             total_chapters=total,
             auditor_verdict=auditor_verdict if partial else None,
         )
-        chapter_result = await run_agent_tracked(
-            chapter_agent,
-            prompt,
-            ledger=ledger,
+        min_words = max(200, int(chapter.target_words * 0.6))
+        content = await _generate_with_min_words(
+            prompt=prompt,
             label=f"chapitre {chapter.index}",
             model=chapter_model,
-            on_usage=on_usage,
+            min_words=min_words,
         )
-        content = chapter_result.output.content
         draft = ChapterDraft.from_outline(chapter, content)
         drafts_by_index[chapter.index] = draft
         previous = content

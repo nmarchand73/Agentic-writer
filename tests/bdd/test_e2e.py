@@ -35,6 +35,8 @@ def context():
 def require_api_key():
     if not os.getenv("OPENAI_API_KEY"):
         pytest.skip("OPENAI_API_KEY requis pour les scénarios @e2e")
+    if os.getenv("AGENTIC_WRITER_RUN_E2E") not in {"1", "true", "TRUE", "yes", "YES"}:
+        pytest.skip("E2E live désactivé (set AGENTIC_WRITER_RUN_E2E=1 pour l'activer)")
 
 
 @given("Node est disponible pour l'export docx")

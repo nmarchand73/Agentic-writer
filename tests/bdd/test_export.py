@@ -51,7 +51,8 @@ def _run_build_docx(context, slug: str):
             stderr="",
         )
         try:
-            build_docx(slug, context["work"], "body")
+            # build_docx now uses export base name {slug}-{format}.
+            build_docx(slug, context["work"], "body", format="nouvelle")
             context["error"] = None
             context["mock_run"] = mock_run
         except PipelineError as e:
@@ -70,7 +71,7 @@ def no_temp_export_files(context):
 @then('build_story.sh a été invoqué avec le slug "export-integ"')
 def slug_in_call(context):
     args = context["mock_run"].call_args[0][0]
-    assert "export-integ" in args
+    assert "export-integ-nouvelle" in args
 
 
 @then("une erreur pipeline est levée")

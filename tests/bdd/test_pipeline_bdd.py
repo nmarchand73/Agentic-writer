@@ -37,7 +37,7 @@ def mock_architect(context, fixture):
 @given("un Writer chapitre simulé avec un corps long")
 def mock_chapter_writer(context):
     context["chapter_writer"] = MockAgent(
-        ChapterWriterResult(content=" ".join(["mot"] * 700))
+        ChapterWriterResult(content=" ".join(["mot"] * 900))
     )
 
 

@@ -8,7 +8,6 @@ from pydantic_ai import Agent
 
 from agentic_writer.agent_instructions import CHAPTER_WRITER_INSTRUCTIONS
 from agentic_writer.config import load_settings
-from agentic_writer.skills import writer_capability
 
 
 class ChapterWriterResult(BaseModel):
@@ -22,5 +21,4 @@ def create_chapter_writer_agent() -> Agent[None, ChapterWriterResult]:
         model,
         instructions=CHAPTER_WRITER_INSTRUCTIONS,
         output_type=ChapterWriterResult,
-        capabilities=[writer_capability()],
     )

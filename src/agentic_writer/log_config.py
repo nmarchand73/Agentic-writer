@@ -5,8 +5,10 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from pathlib import Path
 
 from loguru import logger
+from dotenv import load_dotenv
 
 _CONFIGURED = False
 
@@ -31,6 +33,13 @@ def setup_logging(
 ) -> None:
     """Configure loguru on stderr (idempotent)."""
     global _CONFIGURED
+
+    # Ensure `.env` is loaded before resolving LOG_LEVEL.
+    # The CLI configures logging before calling `load_settings()`,
+    # so relying on `config.load_settings()` to load `.env` would
+    # ignore LOG_LEVEL during `serve` / Studio runs.
+    project_root = Path(__file__).resolve().parents[2]
+    load_dotenv(project_root / ".env")
 
     if quiet:
         resolved = "WARNING"

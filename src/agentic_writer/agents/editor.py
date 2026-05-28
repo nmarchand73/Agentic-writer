@@ -7,7 +7,6 @@ from pydantic_ai import Agent
 from agentic_writer.agent_instructions import EDITOR_INSTRUCTIONS
 from agentic_writer.config import load_settings
 from agentic_writer.models import EditorResult
-from agentic_writer.skills import editor_capability
 
 
 def create_editor_agent() -> Agent[None, EditorResult]:
@@ -16,5 +15,4 @@ def create_editor_agent() -> Agent[None, EditorResult]:
         settings["model_editor"],
         instructions=EDITOR_INSTRUCTIONS,
         output_type=EditorResult,
-        capabilities=[editor_capability()],
     )

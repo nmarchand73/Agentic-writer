@@ -54,7 +54,10 @@ CHAPTER_WRITER_INSTRUCTIONS = dedent("""
     - Pas de titre `#` dans `content` si le prompt fournit déjà le contexte chapitre (corps seul).
 
     ## Sortie
-    - `content` : markdown du chapitre (paragraphes, `##` optionnel pour sous-sections).
+    - Retourne un objet **JSON** valide correspondant à `ChapterWriterResult` :
+      `{ "content": "<markdown du chapitre>" }`
+    - **Aucune** autre clé. **Aucun** texte hors JSON. Pas de fences ``` autour du JSON.
+    - Dans `content` : markdown du chapitre (paragraphes, `##` optionnel pour sous-sections).
 """).strip()
 
 EDITOR_INSTRUCTIONS = dedent("""

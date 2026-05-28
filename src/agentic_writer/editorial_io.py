@@ -70,6 +70,7 @@ def build_prologue_prompt(brief: Brief, blueprint: StoryBlueprint) -> str:
         f"- Twist final (à ménager) : {twist.twist_final}\n"
         f"- Mensonge / omission : {twist.mensonge_omission}\n\n"
         "Accroche immédiate, voix 1re personne présent, terminer sur une tension ou question.\n"
+        "Retourne un `ChapterWriterResult` JSON : {\"content\": \"...\"} (pas de texte hors JSON).\n"
         "Corps markdown dans `content` (pas de titre `#` du livre)."
     )
 
@@ -132,6 +133,7 @@ def build_chapter_prompt(
         f"- Twist final : {twist.twist_final}\n"
         f"- Mid-twist : {twist.mid_twist}\n"
         f"- Coda : {twist.coda_bombe}\n\n"
+        "Retourne un `ChapterWriterResult` JSON : {\"content\": \"...\"} (pas de texte hors JSON).\n"
         "Rédige **ce chapitre seul** dans `content` (markdown, pas de récap des autres chapitres)."
     )
 

@@ -57,6 +57,33 @@ def setup_logging(
         colorize=sys.stderr.isatty(),
         enqueue=False,
     )
+
+    # Optional file logging (kept off by default to avoid unexpected files).
+    # Enable with:
+    # - AGENTIC_WRITER_LOG_TO_FILE=1 (or true/yes)
+    # - and optionally AGENTIC_WRITER_LOG_FILE=/path/to/file.log
+    log_to_file = os.environ.get("AGENTIC_WRITER_LOG_TO_FILE", "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    log_file = os.environ.get("AGENTIC_WRITER_LOG_FILE")
+    if log_to_file or log_file:
+        path = Path(log_file) if log_file else (project_root / "output" / "agentic-writer.log")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        rotation = os.environ.get("AGENTIC_WRITER_LOG_ROTATION", "10 MB")
+        retention = os.environ.get("AGENTIC_WRITER_LOG_RETENTION", "7 days")
+        logger.add(
+            str(path),
+            level=resolved,
+            format=_FORMAT,
+            colorize=False,
+            enqueue=False,
+            backtrace=False,
+            diagnose=False,
+            rotation=rotation,
+            retention=retention,
+        )
     _intercept_stdlib_logging()
     _CONFIGURED = True
     logger.bind(name="agentic_writer").debug("Logging level={}", resolved)

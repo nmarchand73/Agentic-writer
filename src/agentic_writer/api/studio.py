@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from textwrap import dedent
 
 from ag_ui.core import EventType, StateDeltaEvent, StateSnapshotEvent
@@ -128,6 +129,25 @@ def create_studio_agent() -> Agent[StateDeps[StudioState], str]:
         _emit_snapshot(state)
 
         bridge = get_studio_progress_bridge()
+        heartbeat_task: asyncio.Task[None] | None = None
+
+        async def _heartbeat() -> None:
+            # Keep the SSE connection alive while long LLM calls run.
+            # Some Node/undici defaults (body timeout) will terminate if no bytes
+            # are received for too long.
+            if bridge is None:
+                return
+            try:
+                while True:
+                    await asyncio.sleep(15)
+                    bridge.emit_nowait(
+                        StateSnapshotEvent(
+                            type=EventType.STATE_SNAPSHOT,
+                            snapshot=state.model_dump(),
+                        )
+                    )
+            except asyncio.CancelledError:
+                return
 
         def push_step(index: int, status: str) -> None:
             if index < len(state.steps):
@@ -187,6 +207,7 @@ def create_studio_agent() -> Agent[StateDeps[StudioState], str]:
         )
 
         try:
+            heartbeat_task = asyncio.create_task(_heartbeat())
             result = await run_pipeline(
                 brief,
                 md_only=state.md_only,
@@ -205,6 +226,9 @@ def create_studio_agent() -> Agent[StateDeps[StudioState], str]:
             state.error = str(exc)
             msg = f"Échec : {exc}"
             _emit_snapshot(state)
+        finally:
+            if heartbeat_task is not None:
+                heartbeat_task.cancel()
 
         return ToolReturn(
             return_value=msg,

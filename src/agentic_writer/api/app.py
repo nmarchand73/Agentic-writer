@@ -131,9 +131,12 @@ def create_app() -> FastAPI:
             )
 
         bridge = StudioProgressBridge()
-        token = set_studio_progress_bridge(bridge)
 
         async def merged_stream():
+            # ContextVar Tokens must be reset in the same async context
+            # they were created in. Create/reset inside the generator task
+            # to avoid "Token was created in a different Context" errors.
+            token = set_studio_progress_bridge(bridge)
             try:
                 async for event in bridge.interleave(adapter.run_stream(deps=deps)):
                     yield event
